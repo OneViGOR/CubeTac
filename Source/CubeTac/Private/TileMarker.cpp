@@ -115,6 +115,9 @@ void ATileMarker::UpdateAppearance(AActor_MapTile* tile)
 	ParticleTarget->Deactivate();
 	ParticleSelected->Deactivate();
 
+	const UEnum* EnumPtr = FindObject<UEnum>(ANY_PACKAGE, TEXT("ENavigationEnum"), true);
+	FString EnumString = EnumPtr->GetNameStringByIndex((int32)tile->ECurrentlyNavigable);
+
 	if (tile->bMouseOver) {
 		MarkerMesh->SetMaterial(0, MaterialMouseOver);
 		ParticleMouseOver->Activate();
@@ -125,10 +128,12 @@ void ATileMarker::UpdateAppearance(AActor_MapTile* tile)
 		case ENavigationEnum::Nav_Safe:
 			MarkerMesh->SetMaterial(0, MaterialSafe);
 			ParticleSafe->Activate();
+			break;
 			
 		case ENavigationEnum::Nav_Dangerous:
 			MarkerMesh->SetMaterial(0, MaterialDangerous);
 			ParticleDangerous->Activate();
+			break;
 
 		case ENavigationEnum::Nav_Unreachable:
 			if (tile->bTargetable) {
@@ -148,6 +153,7 @@ void ATileMarker::UpdateAppearance(AActor_MapTile* tile)
 			else {
 				MarkerMesh->SetMaterial(0, MaterialFullTransparent);
 			}
+			break;
 		}
 	}
 }

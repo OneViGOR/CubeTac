@@ -57,6 +57,9 @@ protected:
 	UPROPERTY(Replicated)
 	bool bVoid;
 
+private:
+	class UDataTable* EnvironmentData;
+
 public:	
 	//Set Up
 	void SetCoordinates(AGameMap* Map, int X, int Y);
@@ -93,7 +96,7 @@ public:
 
 
 	//Public Variables
-	ENavigationEnum ECurrentlyNavigable;
+	ENavigationEnum ECurrentlyNavigable = ENavigationEnum::Nav_Unreachable;
 	bool bTargetable;
 	bool bMouseOver;
 	UPROPERTY(Replicated)

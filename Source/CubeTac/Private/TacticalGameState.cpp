@@ -12,4 +12,5 @@ void ATacticalGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > 
 	DOREPLIFETIME(ATacticalGameState, GamePhase);
 	DOREPLIFETIME(ATacticalGameState, TeamPlaying);
 	DOREPLIFETIME(ATacticalGameState, NumberOfPlayers);
+
 }

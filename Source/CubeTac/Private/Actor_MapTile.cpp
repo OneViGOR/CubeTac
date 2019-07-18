@@ -31,7 +31,6 @@ AActor_MapTile::AActor_MapTile()
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> CapMeshAsset(TEXT("StaticMesh'/Engine/BasicShapes/Cube.Cube'"));
 	if (CapMeshAsset.Succeeded()) {
 		CapMesh->SetStaticMesh(CapMeshAsset.Object);
-
 	}
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> CapMaterial(TEXT("MaterialInstanceConstant'/Game/Materials/PlainColours/Grass.Grass'"));
 	if (CapMaterial.Succeeded()) {
@@ -57,6 +56,12 @@ AActor_MapTile::AActor_MapTile()
 	TileMarker->SetChildActorClass(ATileMarker::StaticClass());
 	TileMarker->SetupAttachment(RootComponent);
 
+	//Environment Data Table
+	static ConstructorHelpers::FObjectFinder<UDataTable> EnvironmentDataAsset(TEXT("DataTable'/Game/Environment/Environment/EnvironmentColours.EnvironmentColours'"));
+
+	if (EnvironmentDataAsset.Succeeded()) {
+		EnvironmentData = EnvironmentDataAsset.Object;
+	}
 
 	//Set up mouse control events
 	this->OnBeginCursorOver.AddDynamic(this, &AActor_MapTile::OnBeginMouseOver);
@@ -68,6 +73,7 @@ void AActor_MapTile::BeginPlay()
 {
 	Super::BeginPlay();
 	SetVoid(bVoid);
+	SetHighlightMaterial();
 }
 
 void AActor_MapTile::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -110,20 +116,19 @@ void AActor_MapTile::SetVoid_Implementation(bool bVoidParam)
 	}
 }
 
-bool AActor_MapTile::SetEnvironment_Validate(EEnvironmentEnum Environment)
+bool AActor_MapTile::SetAtmosphere_Validate(EEnvironmentEnum Environment)
 {
 	return true;
 }
 
-void AActor_MapTile::SetEnvironment_Implementation(EEnvironmentEnum Environment)
+void AActor_MapTile::SetAtmosphere_Implementation(EEnvironmentEnum Environment)
 {
-	static ConstructorHelpers::FObjectFinder<UDataTable> EnvironmentDataAsset(TEXT("DataTable'/Game/Environment/Environment/EnvironmentColours.EnvironmentColours'"));
 	const UEnum* EnumPtr = FindObject<UEnum>(ANY_PACKAGE, TEXT("EEnvironmentEnum"), true);
 	FString enumString = EnumPtr->GetNameStringByIndex((int32)Environment);
 	FName enumName = FName(*enumString.RightChop(4));
 	static const FString ContextString(TEXT("GENERAL"));
 
-	FEnvironment* foundData = EnvironmentDataAsset.Object->FindRow<FEnvironment>(enumName, ContextString, true);
+	FEnvironment* foundData = EnvironmentData->FindRow<FEnvironment>(enumName, ContextString, true);
 
 	CapMesh->SetMaterial(0, (UMaterialInterface*)foundData->tileCapMaterial);
 	ShaftMesh->SetMaterial(0, (UMaterialInterface*)foundData->tileShaftMaterial);
@@ -229,19 +234,19 @@ void AActor_MapTile::ClickedInPortalPlacementPhase()
 	}
 }
 
-void AActor_MapTile::OnBeginMouseOver(AActor* TouchedComponent) {
+void AActor_MapTile::OnBeginMouseOver(AActor* Component) {
 	if (Cast<ATacticalGameState>(GWorld->GetGameState())->GamePhase != EGamePhase::Phase_Lobby) {
 		bMouseOver = true;
 		SetHighlightMaterial();
 	}
 }
 
-void AActor_MapTile::OnEndMouseOver(AActor* TouchedComponent) {
+void AActor_MapTile::OnEndMouseOver(AActor* Component) {
 	bMouseOver = false;
 	SetHighlightMaterial();
 }
 
-void AActor_MapTile::OnMouseClicked(AActor* TouchedComponent, FKey ButtonPressed) {
+void AActor_MapTile::OnMouseClicked(AActor* Component, FKey ButtonPressed) {
 	if (!bVoid) {
 		if (Cast<ATacticalGameState>(GWorld->GetGameState())->GamePhase == EGamePhase::Phase_Portal) {
 			ClickedInPortalPlacementPhase();

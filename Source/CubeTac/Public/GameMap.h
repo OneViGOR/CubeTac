@@ -9,7 +9,7 @@
 #include "GameMap.generated.h"
 
 USTRUCT(BlueprintType)
-struct FTileData {
+struct FTileDataC {
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tile Data")
@@ -20,7 +20,7 @@ struct FTileData {
 		bool bVoid;
 
 	// Constructor
-	FTileData() {
+	FTileDataC() {
 		Tile = nullptr;
 		Height = 0.0f;
 		bVoid = false;
@@ -31,12 +31,31 @@ USTRUCT(BlueprintType)
 struct FTileRow {
 	GENERATED_USTRUCT_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tiles")
-		TArray<FTileData> Tiles;
+		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tiles")
+		TArray<FTileDataC> Tiles;
 
 	// Constructor
 	FTileRow() {
-		
+
+	}
+};
+
+USTRUCT(BlueprintType)
+struct FNeighbouringTileHeights {
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Average")
+		float AverageHeight;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Boundaries")
+		float Tallest;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Boundaries")
+		float Shortest;
+
+	// Constructor
+	FNeighbouringTileHeights() {
+		AverageHeight = 0.0f;
+		Tallest = false;
+		Shortest = false;
 	}
 };
 
@@ -44,8 +63,8 @@ UCLASS()
 class CUBETAC_API AGameMap : public AActor
 {
 	GENERATED_BODY()
-	
-public:	
+
+public:
 	// Sets default values for this actor's properties
 	AGameMap();
 
@@ -56,36 +75,54 @@ protected:
 	// Map Generation
 	UFUNCTION()
 		void GenerateMap();
-	UFUNCTION(Server, Reliable, WithValidation)
+	UFUNCTION(Server, Reliable, WithValidation, BlueprintCallable)
 		void RegenerateMap(int NewSeed, float TileHeightParam, float SlopeHeightParam, float VoidWeightParam, float BlockageWeightParam);
 	UFUNCTION()
 		void BuildMapGrid();
+	UFUNCTION()
+		void CreateGridArray();
 	UFUNCTION()
 		void PlaceMidpoint();
 	UFUNCTION()
 		void DestroyMap();
 
 	UFUNCTION()
+		FNeighbouringTileHeights GetNeighbouringTileHeights(int TileX, int TileY);
+	UFUNCTION()
+		void ConsolidateHeightChanges(float& CurrentTileHeight, float& TallestTile, float& ShortestTile);
+	UFUNCTION()
+		FTileDataC GetTileDataAtCoordinates(int TileX, int TileY);
+	UFUNCTION()
+		bool DoesTileExist(int TileX, int TileY);
+
+	UFUNCTION(BlueprintCallable)
 		void SetAtmosphere(EEnvironmentEnum EnvironmentParam);
 
 	TArray<FTileRow> TileGrid;
 
 	//Variables for Setting Up the Map
-	TArray<FTileData> ColumnSetupArray;
+	TArray<FTileDataC> ColumnSetupArray;
 	int RowBeingSetUp;
 	bool bSetUpInProgress;
 	int WorkingSeed;
-	
+
 	EEnvironmentEnum EnvironmentType;
 
 	// Generation Settings
-	int InitialSeed;
-	int Rows;
-	int Columns;
-	float MaxTileHeight;
-	float MaxSlopeHeight;
-	float VoidWeight;
-	float BlockageWeight;
+	UPROPERTY(EditAnywhere)
+		int InitialSeed = 0;
+	UPROPERTY(EditAnywhere)
+		int Rows = 10;
+	UPROPERTY(EditAnywhere)
+		int Columns = 10;
+	UPROPERTY(EditAnywhere)
+		float MaxTileHeight = 5.0f;
+	UPROPERTY(EditAnywhere)
+		float MaxSlopeHeight = 0.5f;
+	UPROPERTY(EditAnywhere)
+		float VoidWeight;
+	UPROPERTY(EditAnywhere)
+		float BlockageWeight;
 
 public:
 	//Components

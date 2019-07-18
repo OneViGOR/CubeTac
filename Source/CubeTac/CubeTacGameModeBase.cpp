@@ -2,4 +2,12 @@
 
 
 #include "CubeTacGameModeBase.h"
+#include "TacticalGameState.h"
+#include "PlayerPawnC.h"
 
+ACubeTacGameModeBase::ACubeTacGameModeBase() {
+
+	GameStateClass = ATacticalGameState::StaticClass();
+	PlayerControllerClass = ATacticalControllerC::StaticClass();
+	DefaultPawnClass = APlayerPawnC::StaticClass();
+}

@@ -14,4 +14,7 @@ class CUBETAC_API ACubeTacGameModeBase : public AGameModeBase
 {
 	GENERATED_BODY()
 	
+public:
+	// Sets default values for this actor's properties
+	ACubeTacGameModeBase();
 };

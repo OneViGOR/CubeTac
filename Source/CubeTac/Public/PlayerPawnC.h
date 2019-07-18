@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "Actor_MapTile.h"
 #include "TacticalControllerC.h"
+#include "Runtime/Engine/Classes/GameFramework/SpringArmComponent.h"
+#include "Runtime/Engine/Classes/Camera/CameraComponent.h"
 #include "GameFramework/Pawn.h"
 #include "PlayerPawnC.generated.h"
 
@@ -18,15 +20,28 @@ public:
 	APlayerPawnC();
 
 protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
+	//Components
+	UPROPERTY()
+		USceneComponent* SceneRoot;
 
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
+	UPROPERTY()
+		USpringArmComponent* SpringArm;
+	UPROPERTY()
+		UCameraComponent* Camera;
 
+	//Variables
+	bool bLobbyView;
+	bool bLooking;
+
+public:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+	//Input functions
+	void InputCameraLookPressAction();
+	void InputCameraLookReleaseAction();
+	void InputLookRightAxis(float Value);
+	void InputLookUpAxis(float Value);
 
 	void MoveCharacter(AActor_MapTile* MoveToTile, ATacticalControllerC* CharacterController);
 	void DestroyActor(AActor* Target);

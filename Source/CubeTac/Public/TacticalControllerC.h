@@ -13,9 +13,28 @@ UCLASS()
 class CUBETAC_API ATacticalControllerC : public APlayerController
 {
 	GENERATED_BODY()
-	
+
 public:
-	void CharacterSelected(AGridCharacterC* character);
+	ATacticalControllerC();
+	
+	// Reference UMG Asset in the Editor
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget")
+		TSubclassOf<class UUserWidget> wMainMenu;
+
+	// Variable to hold the widget After Creating it.
+	UUserWidget* MyMainMenu;
+
+protected:
+
+
+public:
+
+	virtual void BeginPlay() override;
+
+	UFUNCTION(Client, Reliable, WithValidation)
+		void SetUpGameUI();
+	UFUNCTION()
+		void CharacterSelected(AGridCharacterC* CharacterParam);
 
 	int Team;
 	AGridCharacterC* SelectedCharacter;
