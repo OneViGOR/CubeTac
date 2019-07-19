@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Actor_MapTile.h"
+#include "MapTile.h"
 #include "Runtime/Engine/Classes/Particles/ParticleSystemComponent.h"
 #include "GameFramework/Actor.h"
 #include "TileMarker.generated.h"
@@ -45,6 +45,6 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	void UpdateAppearance(AActor_MapTile* tile);
+	void UpdateAppearance(AMapTile* tile);
 
 };

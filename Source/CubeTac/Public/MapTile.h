@@ -7,7 +7,7 @@
 #include "BlockageC.h"
 #include "SkySphereC.h"
 #include "Runtime/Engine/Classes/Components/ChildActorComponent.h"
-#include "Actor_MapTile.generated.h"
+#include "MapTile.generated.h"
 
 class AGridCharacterC;
 class ATileMarker;
@@ -21,13 +21,13 @@ enum class ENavigationEnum : uint8 {
 };
 
 UCLASS()
-class CUBETAC_API AActor_MapTile : public AActor
+class CUBETAC_API AMapTile : public AActor
 {
 	GENERATED_BODY()
 	
 public:	
 	// Sets default values for this actor's properties
-	AActor_MapTile();
+	AMapTile();
 
 protected:
 	// Called when the game starts or when spawned
@@ -71,9 +71,9 @@ public:
 	//Utility
 	UFUNCTION(NetMulticast, Reliable, WithValidation)
 	void SetOccupyingCharacter(AGridCharacterC* NewOccupier);
-	AActor_MapTile* LineTraceForTile(FVector Start);
+	AMapTile* LineTraceForTile(FVector Start);
 	int GetTotalMovementCost();
-	TArray<AActor_MapTile*> GetFourNeighbouringTiles();
+	TArray<AMapTile*> GetFourNeighbouringTiles();
 	void SetHighlightMaterial();
 
 	//Mouse Control

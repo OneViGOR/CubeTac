@@ -3,14 +3,14 @@
 
 #include "GridCharacterC.h"
 #include "PortalC.h"
-#include "TacticalControllerC.h"
+#include "TacticalControllerBase.h"
 #include "UnrealNetwork.h"
 #include "Components/StaticMeshComponent.h"
 #include "Runtime/CoreUObject/Public/UObject/ConstructorHelpers.h"
 
 UFUNCTION(Server)
 template <class T>
-T* PlaceBlockageOnTile(AActor_MapTile* Tile)
+T* PlaceBlockageOnTile(AMapTile* Tile)
 {
 	Tile->Blockage = GetWorld()->SpawnActor<T>(T::StaticClass(), NAME_None, Tile->GetActorLocation(), Tile->GetActorRotation(), NULL, false, false, Owner, Instigator);
 	return actor;
@@ -134,7 +134,7 @@ void AGridCharacterC::DamageTarget_Implementation(AActor* DamagedActor, float Da
 void AGridCharacterC::SelectCharacter()
 {
 	bSelected = true;
-	ATacticalControllerC* PlayerController = Cast<ATacticalControllerC>(GetWorld()->GetFirstPlayerController());
+	ATacticalControllerBase* PlayerController = Cast<ATacticalControllerBase>(GetWorld()->GetFirstPlayerController());
 	PlayerController->CharacterSelected(this);
 	ShowNavigableLocations(CurrentTile);
 	CancelTargetting();
@@ -143,24 +143,24 @@ void AGridCharacterC::SelectCharacter()
 void AGridCharacterC::DeselectCharacter()
 {
 	bSelected = false;
-	ATacticalControllerC* PlayerController = Cast<ATacticalControllerC>(GetWorld()->GetFirstPlayerController());
+	ATacticalControllerBase* PlayerController = Cast<ATacticalControllerBase>(GetWorld()->GetFirstPlayerController());
 	PlayerController->CharacterSelected(nullptr);
 	CancelAllNavigableLocations();
 	CancelTargetting();
 }
 
 // Navigation
-ENavigationEnum AGridCharacterC::CanReachTile(AActor_MapTile* Destination) //NEEDS LOGIC
+ENavigationEnum AGridCharacterC::CanReachTile(AMapTile* Destination) //NEEDS LOGIC
 {
 	return ENavigationEnum::Nav_Safe;
 }
 
-bool AGridCharacterC::ShowNavigableLocations_Validate(AActor_MapTile* FromTile)
+bool AGridCharacterC::ShowNavigableLocations_Validate(AMapTile* FromTile)
 {
 	return true;
 }
 
-void AGridCharacterC::ShowNavigableLocations_Implementation(AActor_MapTile* FromTile)
+void AGridCharacterC::ShowNavigableLocations_Implementation(AMapTile* FromTile)
 {
 	CancelAllNavigableLocations();
 	int MovesRequired;
@@ -169,11 +169,11 @@ void AGridCharacterC::ShowNavigableLocations_Implementation(AActor_MapTile* From
 	} else {
 		MovesRequired = CurrentTile->GetTotalMovementCost();
 	}
-	ATacticalControllerC* PlayerController = Cast<ATacticalControllerC>(GetWorld()->GetFirstPlayerController());
+	ATacticalControllerBase* PlayerController = Cast<ATacticalControllerBase>(GetWorld()->GetFirstPlayerController());
 	if (MovesRequired >= MovesRemaining && PlayerController->bTurn) {
-		TArray<AActor_MapTile*> TilesInRange = FromTile->GetFourNeighbouringTiles();
+		TArray<AMapTile*> TilesInRange = FromTile->GetFourNeighbouringTiles();
 		for (int i = 0; i < TilesInRange.Num(); i++) {
-			AActor_MapTile* Tile = TilesInRange[i];
+			AMapTile* Tile = TilesInRange[i];
 			Tile->ECurrentlyNavigable = CanReachTile(Tile);
 			Tile->SetHighlightMaterial();
 		}
@@ -182,14 +182,14 @@ void AGridCharacterC::ShowNavigableLocations_Implementation(AActor_MapTile* From
 
 void AGridCharacterC::CancelAllNavigableLocations()
 {
-	for (TActorIterator<AActor_MapTile> Itr(GetWorld()); Itr; ++Itr)
+	for (TActorIterator<AMapTile> Itr(GetWorld()); Itr; ++Itr)
 	{
 		Itr->ECurrentlyNavigable = ENavigationEnum::Nav_Unreachable;
 		Itr->SetHighlightMaterial();
 	}
 }
 
-bool AGridCharacterC::CheckTileForProperties(AActor_MapTile* Tile, bool bCheckSelf, bool bCheckEnemies, bool bCheckAllies, bool bCheckEmptyTiles, bool bCheckAlliedPortal, bool bCheckEnemyPortal, bool bCheckBlockages)
+bool AGridCharacterC::CheckTileForProperties(AMapTile* Tile, bool bCheckSelf, bool bCheckEnemies, bool bCheckAllies, bool bCheckEmptyTiles, bool bCheckAlliedPortal, bool bCheckEnemyPortal, bool bCheckBlockages)
 {
 	//Check for Self
 	bool bSelfFound = false;
@@ -274,8 +274,8 @@ void AGridCharacterC::DetermineCurrentTile() {
 
 	GetWorld()->LineTraceSingleByObjectType(Hit, StartPoint, EndPoint, ECC_WorldDynamic, CollisionParams);
 
-	if (Cast<AActor_MapTile>(Hit.Actor)) {
-		CurrentTile = Cast<AActor_MapTile>(Hit.Actor);
+	if (Cast<AMapTile>(Hit.Actor)) {
+		CurrentTile = Cast<AMapTile>(Hit.Actor);
 		CurrentTile->SetOccupyingCharacter(this);
 		SetActorLocation(CurrentTile->GetActorLocation());
 	}
@@ -288,7 +288,7 @@ void AGridCharacterC::SelectAbility(int Ability)
 	CancelTargetting();
 	SelectedAbility = Ability;
 	FCharacterAbility SelectedAbilityStructure = AbilitySet[Ability - 1];
-	TArray<AActor_MapTile*> TilesInRange = FindAbilityRange(SelectedAbilityStructure.Range);
+	TArray<AMapTile*> TilesInRange = FindAbilityRange(SelectedAbilityStructure.Range);
 
 	for (int i = 0; i < TilesInRange.Num(); i++)
 	{
@@ -309,26 +309,26 @@ void AGridCharacterC::SelectAbility(int Ability)
 	}
 }
 
-TArray<AActor_MapTile*> AGridCharacterC::FindAbilityRange(int Range)
+TArray<AMapTile*> AGridCharacterC::FindAbilityRange(int Range)
 {
-	TArray<AActor_MapTile*> TilesInRange;
+	TArray<AMapTile*> TilesInRange;
 	TilesInRange.Add(CurrentTile);
 	TilesInRange = ExpandAbilityRange(TilesInRange, Range);
 	return TilesInRange;
 }
 
-TArray<AActor_MapTile*> AGridCharacterC::ExpandAbilityRange(TArray<AActor_MapTile*> CurrentRange, int Range)
+TArray<AMapTile*> AGridCharacterC::ExpandAbilityRange(TArray<AMapTile*> CurrentRange, int Range)
 {
-	TArray<AActor_MapTile*> TilesToAdd;
+	TArray<AMapTile*> TilesToAdd;
 	for (int i = 0; i < CurrentRange.Num(); i++) {
-		TArray<AActor_MapTile*> Neighbours = CurrentRange[i]->GetFourNeighbouringTiles();
+		TArray<AMapTile*> Neighbours = CurrentRange[i]->GetFourNeighbouringTiles();
 		for (int j = 0; j < Neighbours.Num(); j++) {
 			TilesToAdd.AddUnique(Neighbours[j]);
 		}
 	}
 	
 	if (Range - 1 > 0) {
-		TArray<AActor_MapTile*> FurtherExpansion = ExpandAbilityRange(TilesToAdd, Range - 1);
+		TArray<AMapTile*> FurtherExpansion = ExpandAbilityRange(TilesToAdd, Range - 1);
 		for (int i = 0; i < FurtherExpansion.Num(); i++) {
 			TilesToAdd.AddUnique(FurtherExpansion[i]);
 		}
@@ -344,27 +344,27 @@ TArray<AActor_MapTile*> AGridCharacterC::ExpandAbilityRange(TArray<AActor_MapTil
 void AGridCharacterC::CancelTargetting()
 {
 	SelectedAbility = 0;
-	for (TActorIterator<AActor_MapTile> Itr(GetWorld()); Itr; ++Itr)
+	for (TActorIterator<AMapTile> Itr(GetWorld()); Itr; ++Itr)
 	{
 		Itr->bTargetable = false;
 		Itr->SetHighlightMaterial();
 	}
 }
 
-bool AGridCharacterC::DestroyBlockageOnTile_Validate(AActor_MapTile* Tile) {
+bool AGridCharacterC::DestroyBlockageOnTile_Validate(AMapTile* Tile) {
 	return true;
 }
 
-void AGridCharacterC::DestroyBlockageOnTile_Implementation(AActor_MapTile* Tile) {
+void AGridCharacterC::DestroyBlockageOnTile_Implementation(AMapTile* Tile) {
 	Tile->GetBlockage()->Destroy();
 }
 
-bool AGridCharacterC::UseSelectedAbility_Validate(AActor_MapTile* TargetTile)
+bool AGridCharacterC::UseSelectedAbility_Validate(AMapTile* TargetTile)
 {
 	return true;
 }
 
-void AGridCharacterC::UseSelectedAbility_Implementation(AActor_MapTile* TargetTile)
+void AGridCharacterC::UseSelectedAbility_Implementation(AMapTile* TargetTile)
 {
 	switch (SelectedAbility) {
 	case 1:
@@ -379,17 +379,17 @@ void AGridCharacterC::UseSelectedAbility_Implementation(AActor_MapTile* TargetTi
 	CancelTargetting();
 }
 
-void AGridCharacterC::Ability1(AActor_MapTile* TargetTile)
+void AGridCharacterC::Ability1(AMapTile* TargetTile)
 {
 
 }
 
-void AGridCharacterC::Ability2(AActor_MapTile* TargetTile)
+void AGridCharacterC::Ability2(AMapTile* TargetTile)
 {
 
 }
 
-void AGridCharacterC::Ability3(AActor_MapTile* TargetTile)
+void AGridCharacterC::Ability3(AMapTile* TargetTile)
 {
 
 }

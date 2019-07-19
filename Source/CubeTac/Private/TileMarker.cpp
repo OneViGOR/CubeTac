@@ -15,7 +15,7 @@ ATileMarker::ATileMarker()
 	SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
 	RootComponent = SceneRoot;
 
-	//-Cap Mesh
+	//-Marker Mesh
 	MarkerMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MarkerMesh"));
 	MarkerMesh->SetupAttachment(RootComponent);
 	MarkerMesh->SetRelativeScale3D(FVector(0.8f, 0.8f, 0.8f));
@@ -23,6 +23,7 @@ ATileMarker::ATileMarker()
 	if (MarkerMeshAsset.Succeeded()) {
 		MarkerMesh->SetStaticMesh(MarkerMeshAsset.Object);
 	}
+	MarkerMesh->SetCollisionResponseToChannel(ECC_Visibility, ECR_Ignore);
 
 	//--Set Material References
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> MaterialObjectMouseOver(TEXT("MaterialInstanceConstant'/Game/Materials/TileMarkers/TileHighlight_MouseOver.TileHighlight_MouseOver'"));
@@ -107,7 +108,7 @@ void ATileMarker::Tick(float DeltaSeconds) {
 	Super::Tick(DeltaSeconds);
 }
 
-void ATileMarker::UpdateAppearance(AActor_MapTile* tile)
+void ATileMarker::UpdateAppearance(AMapTile* Tile)
 {
 	ParticleMouseOver->Deactivate();
 	ParticleSafe->Deactivate();
@@ -115,15 +116,12 @@ void ATileMarker::UpdateAppearance(AActor_MapTile* tile)
 	ParticleTarget->Deactivate();
 	ParticleSelected->Deactivate();
 
-	const UEnum* EnumPtr = FindObject<UEnum>(ANY_PACKAGE, TEXT("ENavigationEnum"), true);
-	FString EnumString = EnumPtr->GetNameStringByIndex((int32)tile->ECurrentlyNavigable);
-
-	if (tile->bMouseOver) {
+	if (Tile->bMouseOver) {
 		MarkerMesh->SetMaterial(0, MaterialMouseOver);
 		ParticleMouseOver->Activate();
 	}
 	else {
-		switch (tile->ECurrentlyNavigable) {
+		switch (Tile->ECurrentlyNavigable) {
 
 		case ENavigationEnum::Nav_Safe:
 			MarkerMesh->SetMaterial(0, MaterialSafe);
@@ -136,13 +134,12 @@ void ATileMarker::UpdateAppearance(AActor_MapTile* tile)
 			break;
 
 		case ENavigationEnum::Nav_Unreachable:
-			if (tile->bTargetable) {
+			if (Tile->bTargetable) {
 				MarkerMesh->SetMaterial(0, MaterialTarget);
 				ParticleTarget->Activate();
 			}
-
-			else if (tile->GetOccupyingCharacter()->IsValidLowLevel()){
-				if (tile->GetOccupyingCharacter()->GetSelected()) {
+			else if (Tile->GetOccupyingCharacter()->IsValidLowLevel()){
+				if (Tile->GetOccupyingCharacter()->GetSelected()) {
 					MarkerMesh->SetMaterial(0, MaterialSelected);
 					ParticleSelected->Activate();
 				}

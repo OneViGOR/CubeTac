@@ -5,7 +5,7 @@
 
 UFUNCTION(Server)
 template <class T>
-T* PlaceBlockageOnTile(AActor_MapTile* Tile)
+T* PlaceBlockageOnTile(AMapTile* Tile)
 {
 	Tile->Blockage = GetWorld()->SpawnActor<T>(T::StaticClass(), NAME_None, Tile->GetActorLocation(), Tile->GetActorRotation(), NULL, false, false, Owner, Instigator);
 	return actor;
@@ -38,7 +38,7 @@ void AGameMap::GenerateMap()
 	if (this->HasAuthority()) {
 		BuildMapGrid();
 		PlaceMidpoint();
-		for (TActorIterator<AActor_MapTile> Itr(GetWorld()); Itr; ++Itr)
+		for (TActorIterator<AMapTile> Itr(GetWorld()); Itr; ++Itr)
 		{
 			FRandomStream GenerationStream;
 			GenerationStream.Initialize(WorkingSeed);
@@ -80,12 +80,12 @@ void AGameMap::BuildMapGrid()
 			//Set up child actor
 			UChildActorComponent* NewTile = NewObject<UChildActorComponent>(this, UChildActorComponent::StaticClass());
 			NewTile->RegisterComponent();
-			NewTile->SetChildActorClass(AActor_MapTile::StaticClass());
+			NewTile->SetChildActorClass(AMapTile::StaticClass());
 			NewTile->SetupAttachment(RootComponent);
 			NewTile->SetRelativeLocation(FVector(i, j, TileGrid[i].Tiles[j].Height) * 100);
 
 			//Set up tile
-			TileGrid[i].Tiles[j].Tile = Cast<AActor_MapTile>(NewTile->GetChildActor());
+			TileGrid[i].Tiles[j].Tile = Cast<AMapTile>(NewTile->GetChildActor());
 			TileGrid[i].Tiles[j].Tile->SetCoordinates(this, i, j);
 			TileGrid[i].Tiles[j].Tile->SetAtmosphere(EnvironmentType);
 			TileGrid[i].Tiles[j].Tile->SetVoid(TileGrid[i].Tiles[j].bVoid);
@@ -140,7 +140,7 @@ void AGameMap::PlaceMidpoint()
 
 void AGameMap::DestroyMap()
 {
-	for (TActorIterator<AActor_MapTile> Itr(GetWorld()); Itr; ++Itr)
+	for (TActorIterator<AMapTile> Itr(GetWorld()); Itr; ++Itr)
 	{
 		Itr->Destroy();
 	}
@@ -277,7 +277,7 @@ void AGameMap::SetAtmosphere(EEnvironmentEnum EnvironmentParam)
 {
 	EnvironmentType = EnvironmentParam;
 
-	for (TActorIterator<AActor_MapTile> Itr(GetWorld()); Itr; ++Itr)
+	for (TActorIterator<AMapTile> Itr(GetWorld()); Itr; ++Itr)
 	{
 		Itr->SetAtmosphere(EnvironmentParam);
 	}

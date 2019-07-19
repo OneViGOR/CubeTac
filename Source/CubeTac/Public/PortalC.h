@@ -12,5 +12,17 @@ class CUBETAC_API APortalC : public AGridCharacterC
 	GENERATED_BODY()
 	
 public:
-	void SpawnCharacter(AActor_MapTile* SpawnTile);
+	APortalC();
+
+protected:
+	// Called when the game starts or when spawned
+	virtual void BeginPlay() override;
+
+	UPROPERTY()
+		UStaticMeshComponent* RiftMesh;
+	UPROPERTY()
+		AGameMap* GameMapReference;
+
+public:
+	void SpawnCharacter(AMapTile* SpawnTile);
 };

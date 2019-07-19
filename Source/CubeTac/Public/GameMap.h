@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Actor_MapTile.h"
+#include "MapTile.h"
 #include "SkySphereC.h"
 #include "GameFramework/Actor.h"
 #include "GameMap.generated.h"
@@ -13,7 +13,7 @@ struct FTileDataC {
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tile Data")
-		AActor_MapTile* Tile;
+		AMapTile* Tile;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tile Data")
 		float Height;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tile Data")

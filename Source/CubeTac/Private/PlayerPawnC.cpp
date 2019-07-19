@@ -3,6 +3,7 @@
 
 #include "PlayerPawnC.h"
 
+
 // Sets default values
 APlayerPawnC::APlayerPawnC()
 {
@@ -66,17 +67,49 @@ void APlayerPawnC::InputLookUpAxis(float Value)
 }
 
 
-void APlayerPawnC::MoveCharacter(AActor_MapTile* MoveToTile, ATacticalControllerC* CharacterController)
+bool APlayerPawnC::BeginGame_Validate()
+{
+	return true;
+}
+
+void APlayerPawnC::BeginGame_Implementation()
+{
+	bLobbyView = false;
+	SpringArm->TargetArmLength = 1500;
+	Cast<ATacticalControllerBase>(GetController())->SetUpGameUI();
+}
+
+void APlayerPawnC::MoveCharacter(AMapTile* MoveToTile, ATacticalControllerBase* CharacterController)
 {
 
 }
 
-void APlayerPawnC::DestroyActor(AActor* Target)
+bool APlayerPawnC::DestroyActor_Validate(AActor* Target)
 {
-
+	return Target->IsValidLowLevel();
 }
 
-void APlayerPawnC::SpawnPortal(AActor_MapTile* Tile, int Team)
+void APlayerPawnC::DestroyActor_Implementation(AActor* Target)
 {
+	Target->Destroy();
+}
 
+bool APlayerPawnC::SpawnPortal_Validate(AMapTile* Tile, int Team)
+{
+	return true;
+}
+
+void APlayerPawnC::SpawnPortal_Implementation(AMapTile* Tile, int Team)
+{
+	UE_LOG(LogTemp, Warning, TEXT("Spawning"));
+	FVector Location = Tile->GetActorLocation();
+	FRotator Rotation = Tile->GetActorRotation();
+	FActorSpawnParameters SpawnParameters = FActorSpawnParameters();
+	SpawnParameters.Owner = this;
+	SpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	APortalC* NewPortal = GetWorld()->SpawnActor<APortalC>(Location, Rotation, SpawnParameters);
+	Cast<ATacticalControllerBase>(GetController())->OwnedPortal = NewPortal;
+	Tile->SetOccupyingCharacter(NewPortal);
+	
 }

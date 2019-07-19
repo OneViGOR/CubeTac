@@ -8,7 +8,7 @@
 #include "Runtime/Engine/Classes/Particles/ParticleSystem.h"
 #include "Kismet/GameplayStatics.h"
 #include "Runtime/Engine/Classes/Components/TimelineComponent.h"
-#include "Actor_MapTile.h"
+#include "MapTile.h"
 #include "GameFramework/Pawn.h"
 #include "GridCharacterC.generated.h"
 
@@ -94,7 +94,7 @@ protected:
 
 	//Character Data
 	UPROPERTY (BlueprintReadWrite)
-		FString Name;
+		FText Name;
 	UPROPERTY (BlueprintReadWrite, Replicated)
 		int Health;
 	UPROPERTY (BlueprintReadWrite)
@@ -110,7 +110,7 @@ protected:
 
 
 	UPROPERTY (BlueprintReadWrite, Replicated)
-		AActor_MapTile* CurrentTile;
+		AMapTile* CurrentTile;
 	UPROPERTY (BlueprintReadWrite)
 		float MoveClimbHeight;
 	UPROPERTY (BlueprintReadWrite)
@@ -120,7 +120,7 @@ protected:
 	UPROPERTY (BlueprintReadWrite)
 		int SelectedAbility;
 	UPROPERTY (BlueprintReadWrite, meta = (ExposeOnSpawn = "true"), Replicated)
-		int Team;
+		int Team = 1;
 	UPROPERTY (BlueprintReadWrite)
 		bool bIgnoresBlockageSlowing;
 
@@ -145,31 +145,32 @@ public:
 
 	// Selection
 	void SelectCharacter();
-	void DeselectCharacter();
+	UFUNCTION(BlueprintCallable)
+		void DeselectCharacter();
 
 	// Navigation
-	ENavigationEnum CanReachTile(AActor_MapTile* Destination);
+	ENavigationEnum CanReachTile(AMapTile* Destination);
 	UFUNCTION (Client, Reliable, WithValidation)
-		void ShowNavigableLocations(AActor_MapTile* FromTile);
+		void ShowNavigableLocations(AMapTile* FromTile);
 	void CancelAllNavigableLocations();
-	bool CheckTileForProperties(AActor_MapTile* Tile, bool bCheckSelf, bool bCheckEnemies, bool bCheckAllies, bool bCheckEmptyTiles, bool bCheckAlliedPortal, bool bCheckEnemyPortal, bool bCheckBlockages);
+	bool CheckTileForProperties(AMapTile* Tile, bool bCheckSelf, bool bCheckEnemies, bool bCheckAllies, bool bCheckEmptyTiles, bool bCheckAlliedPortal, bool bCheckEnemyPortal, bool bCheckBlockages);
 	void DetermineCurrentTile();
 
 	// Abilities
 	void SelectAbility(int Ability);
-	TArray<AActor_MapTile*> FindAbilityRange(int Range);
-	TArray<AActor_MapTile*> ExpandAbilityRange(TArray<AActor_MapTile*> CurrentRange, int Range);
+	TArray<AMapTile*> FindAbilityRange(int Range);
+	TArray<AMapTile*> ExpandAbilityRange(TArray<AMapTile*> CurrentRange, int Range);
 	void CancelTargetting();
 
 	UFUNCTION(Server, Reliable, WithValidation)
-		void DestroyBlockageOnTile(AActor_MapTile* Tile);
+		void DestroyBlockageOnTile(AMapTile* Tile);
 
 	UFUNCTION (Client, Reliable, WithValidation)
-		void UseSelectedAbility(AActor_MapTile* TargetTile);
+		void UseSelectedAbility(AMapTile* TargetTile);
 
-	virtual void Ability1(AActor_MapTile* TargetTile);
-	virtual void Ability2(AActor_MapTile* TargetTile);
-	virtual void Ability3(AActor_MapTile* TargetTile);
+	virtual void Ability1(AMapTile* TargetTile);
+	virtual void Ability2(AMapTile* TargetTile);
+	virtual void Ability3(AMapTile* TargetTile);
 
 	virtual bool AbilityRule1();
 	virtual bool AbilityRule2();
@@ -201,5 +202,3 @@ public:
 
 	int GetTeam();
 };
-
-

@@ -19,12 +19,27 @@ class CUBETAC_API ATacticalGameState : public AGameStateBase
 	GENERATED_BODY()
 	
 
+protected:
+	UPROPERTY(BlueprintReadOnly)
+		TArray<FLinearColor> TeamColours = { FLinearColor(0.0f, 0.309435f, 1.0f, 1.0f), FLinearColor(1.0f, 0.013363f, 0.0f, 1.0f), FLinearColor(0.073495f, 0.696875f, 0.0f, 1.0f), FLinearColor(1.0f, 0.425576f, 0.0f, 1.0f) };
+	UPROPERTY(Replicated)
+		EGamePhase GamePhase;
+	UPROPERTY(Replicated, BlueprintReadOnly)
+		int TeamPlaying;
+	UPROPERTY(Replicated)
+		int NumberOfPlayers;
+
 public:
-	TArray<FLinearColor> TeamColours;
-	UPROPERTY(Replicated)
-	EGamePhase GamePhase;
-	UPROPERTY(Replicated)
-	int TeamPlaying;
-	UPROPERTY(Replicated)
-	int NumberOfPlayers;
+	UFUNCTION(BlueprintCallable)
+		EGamePhase GetGamePhase();
+	UFUNCTION(Server, Reliable, WithValidation, BlueprintCallable)
+		void SetGamePhase(EGamePhase NewGamePhase);
+	UFUNCTION(Server, Reliable, WithValidation)
+		void SetTeamPlaying(int TeamNumber);
+	UFUNCTION(Server, Reliable, WithValidation)
+		void SetNumberOfPlayers(int NewNumber);
+
+	UFUNCTION()
+		FLinearColor GetTeamColour(int TeamNumber);
+
 };

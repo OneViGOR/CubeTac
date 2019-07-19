@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Actor_MapTile.h"
-#include "TacticalControllerC.h"
+#include "MapTile.h"
+#include "TacticalControllerBase.h"
 #include "Runtime/Engine/Classes/GameFramework/SpringArmComponent.h"
 #include "Runtime/Engine/Classes/Camera/CameraComponent.h"
 #include "GameFramework/Pawn.h"
@@ -38,13 +38,24 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	//Input functions
-	void InputCameraLookPressAction();
-	void InputCameraLookReleaseAction();
-	void InputLookRightAxis(float Value);
-	void InputLookUpAxis(float Value);
+	UFUNCTION()
+		void InputCameraLookPressAction();
+	UFUNCTION()
+		void InputCameraLookReleaseAction();
+	UFUNCTION()
+		void InputLookRightAxis(float Value);
+	UFUNCTION()
+		void InputLookUpAxis(float Value);
 
-	void MoveCharacter(AActor_MapTile* MoveToTile, ATacticalControllerC* CharacterController);
-	void DestroyActor(AActor* Target);
-	void SpawnPortal(AActor_MapTile* Tile, int Team);
+	//Game Management
+	UFUNCTION(Client, Reliable, WithValidation, BlueprintCallable)
+		void BeginGame();
+
+	UFUNCTION()
+		void MoveCharacter(AMapTile* MoveToTile, ATacticalControllerBase* CharacterController);
+	UFUNCTION(Server, Reliable, WithValidation)
+		void DestroyActor(AActor* Target);
+	UFUNCTION(Server, Reliable, WithValidation)
+		void SpawnPortal(AMapTile* Tile, int Team);
 
 };

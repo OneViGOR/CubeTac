@@ -1,10 +1,10 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "Actor_MapTile.h"
+#include "MapTile.h"
 #include "Engine.h"
 #include "TileMarker.h"
-#include "TacticalControllerC.h"
+#include "TacticalControllerBase.h"
 #include "GridCharacterC.h"
 #include "PortalC.h"
 #include "PlayerPawnC.h"
@@ -14,7 +14,7 @@
 #include "Runtime/CoreUObject/Public/UObject/ConstructorHelpers.h"
 
 // Sets default values
-AActor_MapTile::AActor_MapTile()
+AMapTile::AMapTile()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
@@ -64,41 +64,41 @@ AActor_MapTile::AActor_MapTile()
 	}
 
 	//Set up mouse control events
-	this->OnBeginCursorOver.AddDynamic(this, &AActor_MapTile::OnBeginMouseOver);
-	this->OnEndCursorOver.AddDynamic(this, &AActor_MapTile::OnEndMouseOver);
-	this->OnClicked.AddDynamic(this, &AActor_MapTile::OnMouseClicked);
+	this->OnBeginCursorOver.AddDynamic(this, &AMapTile::OnBeginMouseOver);
+	this->OnEndCursorOver.AddDynamic(this, &AMapTile::OnEndMouseOver);
+	this->OnClicked.AddDynamic(this, &AMapTile::OnMouseClicked);
 }
 
-void AActor_MapTile::BeginPlay()
+void AMapTile::BeginPlay()
 {
 	Super::BeginPlay();
 	SetVoid(bVoid);
 	SetHighlightMaterial();
 }
 
-void AActor_MapTile::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
+void AMapTile::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	//Replicate to all
-	DOREPLIFETIME(AActor_MapTile, OccupyingCharacter);
-	DOREPLIFETIME(AActor_MapTile, GameMapReference);
-	DOREPLIFETIME(AActor_MapTile, Blockage);
-	DOREPLIFETIME(AActor_MapTile, bVoid);
+	DOREPLIFETIME(AMapTile, OccupyingCharacter);
+	DOREPLIFETIME(AMapTile, GameMapReference);
+	DOREPLIFETIME(AMapTile, Blockage);
+	DOREPLIFETIME(AMapTile, bVoid);
 }
 
-void AActor_MapTile::SetCoordinates(AGameMap* Map, int X, int Y)
+void AMapTile::SetCoordinates(AGameMap* Map, int X, int Y)
 {
 	GameMapReference = Map;
 	Coordinates = FVector2D((float)X, (float)Y);
 }
 
-bool AActor_MapTile::SetVoid_Validate(bool bIsVoid)
+bool AMapTile::SetVoid_Validate(bool bIsVoid)
 {
 	return true;
 }
 
-void AActor_MapTile::SetVoid_Implementation(bool bVoidParam)
+void AMapTile::SetVoid_Implementation(bool bVoidParam)
 {
 	bVoid = bVoidParam;
 
@@ -116,12 +116,12 @@ void AActor_MapTile::SetVoid_Implementation(bool bVoidParam)
 	}
 }
 
-bool AActor_MapTile::SetAtmosphere_Validate(EEnvironmentEnum Environment)
+bool AMapTile::SetAtmosphere_Validate(EEnvironmentEnum Environment)
 {
 	return true;
 }
 
-void AActor_MapTile::SetAtmosphere_Implementation(EEnvironmentEnum Environment)
+void AMapTile::SetAtmosphere_Implementation(EEnvironmentEnum Environment)
 {
 	const UEnum* EnumPtr = FindObject<UEnum>(ANY_PACKAGE, TEXT("EEnvironmentEnum"), true);
 	FString enumString = EnumPtr->GetNameStringByIndex((int32)Environment);
@@ -135,17 +135,17 @@ void AActor_MapTile::SetAtmosphere_Implementation(EEnvironmentEnum Environment)
 	
 }
 
-bool AActor_MapTile::SetOccupyingCharacter_Validate(AGridCharacterC* NewOccupier)
+bool AMapTile::SetOccupyingCharacter_Validate(AGridCharacterC* NewOccupier)
 {
 	return true;
 }
 
-void AActor_MapTile::SetOccupyingCharacter_Implementation(AGridCharacterC* NewOccupier)
+void AMapTile::SetOccupyingCharacter_Implementation(AGridCharacterC* NewOccupier)
 {
 	OccupyingCharacter = NewOccupier;
 }
 
-AActor_MapTile* AActor_MapTile::LineTraceForTile(FVector Start)
+AMapTile* AMapTile::LineTraceForTile(FVector Start)
 {
 	FHitResult Hit(ForceInit);
 	FCollisionQueryParams CollisionParams;
@@ -154,8 +154,8 @@ AActor_MapTile* AActor_MapTile::LineTraceForTile(FVector Start)
 
 	GetWorld()->LineTraceSingleByObjectType(Hit, StartPoint, EndPoint, ECC_WorldDynamic, CollisionParams);
 
-	if (Cast<AActor_MapTile>(Hit.Actor)) {
-		AActor_MapTile* ReturnTile = Cast<AActor_MapTile>(Hit.Actor);
+	if (Cast<AMapTile>(Hit.Actor)) {
+		AMapTile* ReturnTile = Cast<AMapTile>(Hit.Actor);
 		return ReturnTile;
 	}
 	else {
@@ -163,7 +163,7 @@ AActor_MapTile* AActor_MapTile::LineTraceForTile(FVector Start)
 	}
 }
 
-int AActor_MapTile::GetTotalMovementCost()
+int AMapTile::GetTotalMovementCost()
 {
 	int TotalCost = MovementCost;
 	if (Blockage->IsValidLowLevel()) {
@@ -172,13 +172,13 @@ int AActor_MapTile::GetTotalMovementCost()
 	return TotalCost;
 }
 
-TArray<AActor_MapTile*> AActor_MapTile::GetFourNeighbouringTiles()
+TArray<AMapTile*> AMapTile::GetFourNeighbouringTiles()
 {
-	TArray<AActor_MapTile*> Tiles;
+	TArray<AMapTile*> Tiles;
 	return Tiles;
 }
 
-void AActor_MapTile::SetHighlightMaterial()
+void AMapTile::SetHighlightMaterial()
 {
 	if (!bVoid) {
 		Cast<ATileMarker>(TileMarker->GetChildActor())->UpdateAppearance(this);
@@ -186,9 +186,9 @@ void AActor_MapTile::SetHighlightMaterial()
 }
 
 // Mouse Control
-void AActor_MapTile::ClickedInGamePhase()
+void AMapTile::ClickedInGamePhase()
 {
-	ATacticalControllerC* PlayerController = Cast<ATacticalControllerC>(GetWorld()->GetFirstPlayerController());
+	ATacticalControllerBase* PlayerController = Cast<ATacticalControllerBase>(GetWorld()->GetFirstPlayerController());
 
 	if (ECurrentlyNavigable != ENavigationEnum::Nav_Unreachable) {
 		Cast<APlayerPawnC>(PlayerController->GetPawn())->MoveCharacter(this, PlayerController);
@@ -221,54 +221,56 @@ void AActor_MapTile::ClickedInGamePhase()
 	}
 }
 
-void AActor_MapTile::ClickedInPortalPlacementPhase()
+void AMapTile::ClickedInPortalPlacementPhase()
 {
-	ATacticalControllerC* PlayerController = Cast<ATacticalControllerC>(GetWorld()->GetFirstPlayerController());
+	ATacticalControllerBase* PlayerController = Cast<ATacticalControllerBase>(GetWorld()->GetFirstPlayerController());
 	APlayerPawnC* PlayerPawn = Cast<APlayerPawnC>(PlayerController->GetPawn());
 
 	if (PlayerController->bTurn && !(Blockage->IsValidLowLevel())) {
 		if (PlayerController->OwnedPortal->IsValidLowLevel()) {
 			PlayerPawn->DestroyActor(PlayerController->OwnedPortal);
 		}
+
+		UE_LOG(LogTemp, Warning, TEXT("Should execute %s"), PlayerPawn->IsValidLowLevel() ? TEXT("True") : TEXT("False"));
 		PlayerPawn->SpawnPortal(this, PlayerController->Team);
 	}
 }
 
-void AActor_MapTile::OnBeginMouseOver(AActor* Component) {
-	if (Cast<ATacticalGameState>(GWorld->GetGameState())->GamePhase != EGamePhase::Phase_Lobby) {
+void AMapTile::OnBeginMouseOver(AActor* Component) {
+	if (Cast<ATacticalGameState>(GWorld->GetGameState())->GetGamePhase() != EGamePhase::Phase_Lobby) {
 		bMouseOver = true;
 		SetHighlightMaterial();
 	}
 }
 
-void AActor_MapTile::OnEndMouseOver(AActor* Component) {
+void AMapTile::OnEndMouseOver(AActor* Component) {
 	bMouseOver = false;
 	SetHighlightMaterial();
 }
 
-void AActor_MapTile::OnMouseClicked(AActor* Component, FKey ButtonPressed) {
+void AMapTile::OnMouseClicked(AActor* Component, FKey ButtonPressed) {
 	if (!bVoid) {
-		if (Cast<ATacticalGameState>(GWorld->GetGameState())->GamePhase == EGamePhase::Phase_Portal) {
+		if (Cast<ATacticalGameState>(GWorld->GetGameState())->GetGamePhase() == EGamePhase::Phase_Portal) {
 			ClickedInPortalPlacementPhase();
 		}
-		else if (Cast<ATacticalGameState>(GWorld->GetGameState())->GamePhase == EGamePhase::Phase_Game) {
+		else if (Cast<ATacticalGameState>(GWorld->GetGameState())->GetGamePhase() == EGamePhase::Phase_Game) {
 			ClickedInGamePhase();
 		}
 	}
 }
 
 // Getters and Setters
-AGridCharacterC* AActor_MapTile::GetOccupyingCharacter()
+AGridCharacterC* AMapTile::GetOccupyingCharacter()
 {
 	return OccupyingCharacter;
 }
 
-ABlockageC* AActor_MapTile::GetBlockage()
+ABlockageC* AMapTile::GetBlockage()
 {
 	return Blockage;
 }
 
-bool AActor_MapTile::GetVoid()
+bool AMapTile::GetVoid()
 {
 	return bVoid;
 }
