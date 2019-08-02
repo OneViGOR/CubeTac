@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2019 James Vigor. All Rights Reserved.
 
 
 #include "MapTile.h"
@@ -17,6 +17,10 @@
 AMapTile::AMapTile()
 {
 	PrimaryActorTick.bCanEverTick = false;
+	SetReplicates(true);
+
+	//Set Up Variables
+	MovementCost = 1;
 
 	//Set up components
 	//-Scene Root
@@ -36,6 +40,7 @@ AMapTile::AMapTile()
 	if (CapMaterial.Succeeded()) {
 		CapMesh->SetMaterial(0, CapMaterial.Object);
 	}
+	CapMesh->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
 
 	//-Shaft Mesh
 	ShaftMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("TeamPlane"));
@@ -50,6 +55,7 @@ AMapTile::AMapTile()
 	if (ShaftMaterial.Succeeded()) {
 		ShaftMesh->SetMaterial(0, ShaftMaterial.Object);
 	}
+	ShaftMesh->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
 
 	//-Tile Marker
 	TileMarker = CreateDefaultSubobject<UChildActorComponent>(TEXT("TileMarker"));
@@ -124,14 +130,14 @@ bool AMapTile::SetAtmosphere_Validate(EEnvironmentEnum Environment)
 void AMapTile::SetAtmosphere_Implementation(EEnvironmentEnum Environment)
 {
 	const UEnum* EnumPtr = FindObject<UEnum>(ANY_PACKAGE, TEXT("EEnvironmentEnum"), true);
-	FString enumString = EnumPtr->GetNameStringByIndex((int32)Environment);
-	FName enumName = FName(*enumString.RightChop(4));
+	FString EnumString = EnumPtr->GetNameStringByIndex((int32)Environment);
+	FName EnumName = FName(*EnumString.RightChop(4));
 	static const FString ContextString(TEXT("GENERAL"));
 
-	FEnvironment* foundData = EnvironmentData->FindRow<FEnvironment>(enumName, ContextString, true);
+	FEnvironment* FoundData = EnvironmentData->FindRow<FEnvironment>(EnumName, ContextString, true);
 
-	CapMesh->SetMaterial(0, (UMaterialInterface*)foundData->tileCapMaterial);
-	ShaftMesh->SetMaterial(0, (UMaterialInterface*)foundData->tileShaftMaterial);
+	CapMesh->SetMaterial(0, (UMaterialInterface*)FoundData->TileCapMaterial);
+	ShaftMesh->SetMaterial(0, (UMaterialInterface*)FoundData->TileShaftMaterial);
 	
 }
 
@@ -166,7 +172,7 @@ AMapTile* AMapTile::LineTraceForTile(FVector Start)
 int AMapTile::GetTotalMovementCost()
 {
 	int TotalCost = MovementCost;
-	if (Blockage->IsValidLowLevel()) {
+	if (Blockage != nullptr) {
 		TotalCost += Blockage->AdditionalMovementCost;
 	}
 	return TotalCost;
@@ -174,8 +180,32 @@ int AMapTile::GetTotalMovementCost()
 
 TArray<AMapTile*> AMapTile::GetFourNeighbouringTiles()
 {
-	TArray<AMapTile*> Tiles;
-	return Tiles;
+	TArray<AMapTile*> AllTilesFound;
+	//Positive X direction
+	AMapTile* TilePosX = LineTraceForTile(GetActorLocation() + FVector(100.0f, 0.0f, 0.0f));
+	if (TilePosX != nullptr) {
+		AllTilesFound.Add(TilePosX);
+	}
+
+	//Negative X direction
+	AMapTile* TileNegX = LineTraceForTile(GetActorLocation() + FVector(-100.0f, 0.0f, 0.0f));
+	if (TileNegX != nullptr) {
+		AllTilesFound.Add(TileNegX);
+	}
+
+	//Positive Y direction
+	AMapTile* TilePosY = LineTraceForTile(GetActorLocation() + FVector(0.0f, 100.0f, 0.0f));
+	if (TilePosY != nullptr) {
+		AllTilesFound.Add(TilePosY);
+	}
+
+	//Negative Y direction
+	AMapTile* TileNegY = LineTraceForTile(GetActorLocation() + FVector(0.0f, -100.0f, 0.0f));
+	if (TileNegY != nullptr) {
+		AllTilesFound.Add(TileNegY);
+	}
+
+	return AllTilesFound;
 }
 
 void AMapTile::SetHighlightMaterial()
@@ -196,7 +226,7 @@ void AMapTile::ClickedInGamePhase()
 	else {
 		bool bSelectOccupiedCharacter = false;
 
-		if (PlayerController->SelectedCharacter->IsValidLowLevel()) {
+		if (PlayerController->SelectedCharacter != nullptr) {
 			if (bTargetable) {
 				if (Cast<APortalC>(PlayerController->SelectedCharacter)) {
 					APortalC* PortalReference = Cast<APortalC>(PlayerController->SelectedCharacter);
@@ -215,8 +245,10 @@ void AMapTile::ClickedInGamePhase()
 			bSelectOccupiedCharacter = true;
 		}
 
-		if (bSelectOccupiedCharacter && (PlayerController->Team == OccupyingCharacter->GetTeam())) {
-			OccupyingCharacter->SelectCharacter();
+		if (OccupyingCharacter != nullptr) {
+			if (bSelectOccupiedCharacter && (PlayerController->Team == OccupyingCharacter->GetTeam())) {
+				OccupyingCharacter->SelectCharacter();
+			}
 		}
 	}
 }
@@ -231,7 +263,6 @@ void AMapTile::ClickedInPortalPlacementPhase()
 			PlayerPawn->DestroyActor(PlayerController->OwnedPortal);
 		}
 
-		UE_LOG(LogTemp, Warning, TEXT("Should execute %s"), PlayerPawn->IsValidLowLevel() ? TEXT("True") : TEXT("False"));
 		PlayerPawn->SpawnPortal(this, PlayerController->Team);
 	}
 }

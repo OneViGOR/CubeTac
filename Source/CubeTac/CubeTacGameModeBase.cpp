@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2019 James Vigor. All Rights Reserved.
 
 
 #include "CubeTacGameModeBase.h"
@@ -7,18 +7,39 @@
 
 ACubeTacGameModeBase::ACubeTacGameModeBase() {
 
+	bStartPlayersAsSpectators = false;
+
 	GameStateClass = ATacticalGameState::StaticClass();
 	PlayerControllerClass = ATacticalControllerBase::StaticClass();
 	DefaultPawnClass = APlayerPawnC::StaticClass();
+
 }
 
 void ACubeTacGameModeBase::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	GetGameState<ATacticalGameState>()->SetGamePhase(EGamePhase::Phase_Lobby);
+	GameStateReference = GetGameState<ATacticalGameState>();
+	GameStateReference->SetGamePhase(EGamePhase::Phase_Lobby);
 
 	Cast<ATacticalControllerBase>(GetWorld()->GetFirstPlayerController())->bTurn = true;
+	
+}
+
+void ACubeTacGameModeBase::PostLogin(APlayerController* NewPlayer)
+{
+	PlayerControllers.Add(Cast<ATacticalControllerBase>(NewPlayer));
+	NumberOfPlayers++;
+	Cast<ATacticalControllerBase>(NewPlayer)->Team = NumberOfPlayers - 1;
+	GetGameState<ATacticalGameState>()->SetNumberOfPlayers(NumberOfPlayers);
+
+	UE_LOG(LogTemp, Warning, TEXT("Player Team %d"), Cast<ATacticalControllerBase>(NewPlayer)->Team);
+
+	FTransform SpawnLocation;
+	SpawnLocation.SetLocation(FVector(0.0f, 0.0f, 75.0f));
+	SpawnLocation.SetRotation(FQuat(FRotator(0, 0, 0)));
+	SpawnLocation.SetScale3D(FVector(1.0f, 1.0f, 1.0f));
+	NewPlayer->Possess(SpawnDefaultPawnAtTransform(NewPlayer, SpawnLocation));
 }
 
 bool ACubeTacGameModeBase::PassTurn_Validate(ATacticalControllerBase* PlayerController)
@@ -32,7 +53,7 @@ void ACubeTacGameModeBase::PassTurn_Implementation(ATacticalControllerBase* Play
 	PlayerController->bTurn = false;
 	if ((TeamPlaying + 1) > NumberOfPlayers) {
 		TeamPlaying = 1;
-		if (GameStateReference->GetGamePhase() == EGamePhase::Phase_Portal) { //Crash reported
+		if (GameStateReference->GetGamePhase() == EGamePhase::Phase_Portal) {
 			GameStateReference->SetGamePhase(EGamePhase::Phase_Game);
 		}
 	}
@@ -50,7 +71,10 @@ void ACubeTacGameModeBase::ResetPlayerPieces()
 {
 	for (TActorIterator<AGridCharacterC> Itr(GetWorld()); Itr; ++Itr)
 	{
-		if (Itr->GetTeam() == TeamPlaying) {
+		UE_LOG(LogTemp, Warning, TEXT("Character Team: %d"), Itr->GetTeam());
+		UE_LOG(LogTemp, Warning, TEXT("Team Playing: %d"), TeamPlaying);
+		if (Itr->GetTeam() + 1 == TeamPlaying) {
+			UE_LOG(LogTemp, Warning, TEXT("Character Reset"));
 			Itr->NewTurnStart();
 		}
 	}

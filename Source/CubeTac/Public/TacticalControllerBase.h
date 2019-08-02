@@ -1,9 +1,10 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2019 James Vigor. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "PortalC.h"
+#include "GameInterfaceBase.h"
 #include "GameFramework/PlayerController.h"
 #include "TacticalControllerBase.generated.h"
 
@@ -25,9 +26,9 @@ public:
 
 	//Game UI
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget")
-		TSubclassOf<class UUserWidget> GameWidget;
+		TSubclassOf<class UGameInterfaceBase> GameWidget;
 	UPROPERTY()
-		UUserWidget* GameWidgetReference;
+		UGameInterfaceBase* GameWidgetReference;
 protected:
 
 
@@ -42,8 +43,13 @@ public:
 		void SetUpLobbyUI();
 	UFUNCTION(Client, Reliable, WithValidation)
 		void SetUpGameUI();
-	UFUNCTION()
-		void CharacterSelected(AGridCharacterC* CharacterParam);
+	UFUNCTION(Server, Reliable, WithValidation)
+		void CharacterSelected(AGridCharacterC* NewCharacter);
+	UFUNCTION(BlueprintCallable)
+		APortalC* GetPortal();
+	UFUNCTION(Client, Reliable, WithValidation)
+		void UISelect(AGridCharacterC* NewCharacter);
+
 
 	UPROPERTY(BlueprintReadOnly, Replicated)
 		int Team;

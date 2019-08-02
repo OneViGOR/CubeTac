@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2019 James Vigor. All Rights Reserved.
 
 #pragma once
 
@@ -26,6 +26,7 @@ protected:
 
 public:
 	virtual void BeginPlay() override;
+	virtual void PostLogin(APlayerController* NewPlayer) override;
 
 	UFUNCTION(Server, Reliable, WithValidation)
 		void PassTurn(ATacticalControllerBase* PlayerController);

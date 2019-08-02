@@ -1,7 +1,8 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2019 James Vigor. All Rights Reserved.
 
 
 #include "TacticalControllerBase.h"
+#include "Engine.h"
 #include "CubeTacGameModeBase.h"
 #include "UnrealNetwork.h"
 #include "Blueprint/UserWidget.h"
@@ -11,7 +12,7 @@ ATacticalControllerBase::ATacticalControllerBase()
 	bShowMouseCursor = true;
 	bEnableClickEvents = true;
 	bEnableMouseOverEvents = true;
-	bReplicates = true;
+	SetReplicates(true);
 }
 
 void ATacticalControllerBase::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -41,6 +42,7 @@ bool ATacticalControllerBase::EndTurn_Validate()
 
 void ATacticalControllerBase::EndTurn_Implementation()
 {
+	UE_LOG(LogTemp, Warning, TEXT("End Turn"));
 	GetWorld()->GetAuthGameMode<ACubeTacGameModeBase>()->PassTurn(this);
 	if (SelectedCharacter != nullptr) { //Pointed out by crash report
 		SelectedCharacter->CancelAllNavigableLocations();
@@ -75,7 +77,7 @@ void ATacticalControllerBase::SetUpGameUI_Implementation() {
 
 	if (GameWidget)
 	{
-		GameWidgetReference = CreateWidget<UUserWidget>(this, GameWidget);
+		GameWidgetReference = CreateWidget<UGameInterfaceBase>(this, GameWidget);
 
 		if (GameWidgetReference)
 		{
@@ -84,7 +86,28 @@ void ATacticalControllerBase::SetUpGameUI_Implementation() {
 	}
 }
 
-void ATacticalControllerBase::CharacterSelected(AGridCharacterC* character)
+bool ATacticalControllerBase::CharacterSelected_Validate(AGridCharacterC* NewCharacter)
 {
+	return true;
+}
 
+void ATacticalControllerBase::CharacterSelected_Implementation(AGridCharacterC* NewCharacter)
+{
+	SelectedCharacter = NewCharacter;
+	UISelect(NewCharacter);
+}
+
+APortalC* ATacticalControllerBase::GetPortal()
+{
+	return OwnedPortal;
+}
+
+bool ATacticalControllerBase::UISelect_Validate(AGridCharacterC* NewCharacter)
+{
+	return true;
+}
+
+void ATacticalControllerBase::UISelect_Implementation(AGridCharacterC* NewCharacter)
+{
+	GameWidgetReference->CharacterSelected(NewCharacter);
 }

@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2019 James Vigor. All Rights Reserved.
 
 #pragma once
 
@@ -18,11 +18,16 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+	
+	// Components
+	UPROPERTY()
+		USceneComponent* SceneRoot;
+	UPROPERTY()
+		UStaticMeshComponent* BlockageMesh;
 
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
-
+public:
+	// Variables
 	int AdditionalMovementCost;
+	bool bObstructAllMovement;
 
 };

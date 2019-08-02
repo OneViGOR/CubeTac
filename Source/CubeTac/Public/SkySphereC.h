@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2019 James Vigor. All Rights Reserved.
 
 #pragma once
 
@@ -6,6 +6,7 @@
 #include "EngineUtils.h"
 #include "Runtime/Engine/Classes/Components/ExponentialHeightFogComponent.h"
 #include "Runtime/Engine/Classes/Engine/ExponentialHeightFog.h"
+#include "Runtime/Engine/Classes/Engine/DirectionalLight.h"
 #include "Engine/DataTable.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/Actor.h"
@@ -15,6 +16,7 @@ UENUM(BlueprintType)
 enum class EEnvironmentEnum : uint8 {
 	Env_Woodlands		UMETA(DisplayName = "Woodlands"),
 	Env_Hell			UMETA(DisplayName = "Hell"),
+	Env_Polar			UMETA(DisplayName = "Polar"),
 };
 
 USTRUCT(BlueprintType)
@@ -22,16 +24,22 @@ struct FEnvironment : public FTableRowBase {
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "World")
-		UMaterialInstance *skyMaterial;
+		UMaterialInstance *SkyMaterial;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "World")
-		FLinearColor fogColour;
+		FLinearColor FogColour;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tile")
-		UMaterialInstance *tileCapMaterial;
+		UMaterialInstance *TileCapMaterial;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Tile")
-		UMaterialInstance *tileShaftMaterial;
+		UMaterialInstance *TileShaftMaterial;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lighting")
+		float LightIntensity;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lighting")
+		FLinearColor LightColour;
 
 	// Constructor
 	FEnvironment() {
@@ -64,6 +72,8 @@ public:
 	UPROPERTY()
 		UStaticMeshComponent* SphereMesh;
 
+	UPROPERTY(EditAnywhere)
+		ADirectionalLight* Skylight;
 	UPROPERTY(EditAnywhere)
 		TSoftObjectPtr<AExponentialHeightFog> WorldFogRef;
 

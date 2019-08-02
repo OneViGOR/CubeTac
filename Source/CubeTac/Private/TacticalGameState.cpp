@@ -1,8 +1,14 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2019 James Vigor. All Rights Reserved.
 
 
 #include "TacticalGameState.h"
+#include "Engine.h"
 #include "UnrealNetwork.h"
+
+void ATacticalGameState::Tick(float DeltaTime) {
+	Super::Tick(DeltaTime);
+	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, TEXT("%d playing"), TeamPlaying);
+}
 
 void ATacticalGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
@@ -16,8 +22,8 @@ void ATacticalGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > 
 }
 
 EGamePhase ATacticalGameState::GetGamePhase()
-{ //Crash reported
-	return EGamePhase();
+{
+	return GamePhase;
 }
 
 bool ATacticalGameState::SetGamePhase_Validate(EGamePhase NewGamePhase)
@@ -51,8 +57,13 @@ void ATacticalGameState::SetNumberOfPlayers_Implementation(int NewNumber)
 }
 
 
-
 FLinearColor ATacticalGameState::GetTeamColour(int TeamNumber)
 {
-	return TeamColours[TeamNumber - 1];
+	UE_LOG(LogTemp, Warning, TEXT("Team %d"), TeamNumber);
+	if (TeamNumber > 0) {
+		return TeamColours[FMath::Clamp(TeamNumber - 1, 0, 3)];
+	}
+	else {
+		return FLinearColor(0,0,0,1);
+	}
 }

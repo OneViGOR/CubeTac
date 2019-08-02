@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2019 James Vigor. All Rights Reserved.
 
 #pragma once
 
@@ -76,15 +76,15 @@ protected:
 	UFUNCTION()
 		void GenerateMap();
 	UFUNCTION(Server, Reliable, WithValidation, BlueprintCallable)
-		void RegenerateMap(int NewSeed, float TileHeightParam, float SlopeHeightParam, float VoidWeightParam, float BlockageWeightParam);
+		void RegenerateMap(int NewSeed, int RowsParam, int ColumnsParam, float TileHeightParam, float SlopeHeightParam, float VoidWeightParam, float BlockageWeightParam);
 	UFUNCTION()
 		void BuildMapGrid();
 	UFUNCTION()
 		void CreateGridArray();
 	UFUNCTION()
-		void PlaceMidpoint();
-	UFUNCTION()
 		void DestroyMap();
+	UFUNCTION(Server, Reliable, WithValidation)
+		void PlaceBlockageOnTile(AMapTile* Tile, TSubclassOf<ABlockageC> BlockageClass);
 
 	UFUNCTION()
 		FNeighbouringTileHeights GetNeighbouringTileHeights(int TileX, int TileY);
@@ -112,13 +112,13 @@ protected:
 	UPROPERTY(EditAnywhere)
 		int InitialSeed = 0;
 	UPROPERTY(EditAnywhere)
-		int Rows = 10;
+		int Rows;
 	UPROPERTY(EditAnywhere)
-		int Columns = 10;
+		int Columns;
 	UPROPERTY(EditAnywhere)
-		float MaxTileHeight = 5.0f;
+		float MaxTileHeight;
 	UPROPERTY(EditAnywhere)
-		float MaxSlopeHeight = 0.5f;
+		float MaxSlopeHeight;
 	UPROPERTY(EditAnywhere)
 		float VoidWeight;
 	UPROPERTY(EditAnywhere)
@@ -128,6 +128,4 @@ public:
 	//Components
 	UPROPERTY()
 		USceneComponent* SceneRoot;
-	UPROPERTY()
-		USceneComponent* Midpoint;
 };

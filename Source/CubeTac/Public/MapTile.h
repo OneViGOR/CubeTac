@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2019 James Vigor. All Rights Reserved.
 
 #pragma once
 
@@ -35,27 +35,27 @@ protected:
 
 	//Components
 	UPROPERTY()
-	USceneComponent* SceneRoot;
+		USceneComponent* SceneRoot;
 
 	UPROPERTY()
-	UStaticMeshComponent* CapMesh;
+		UStaticMeshComponent* CapMesh;
 	UPROPERTY()
-	UStaticMeshComponent* ShaftMesh;
+		UStaticMeshComponent* ShaftMesh;
 	UPROPERTY()
-	UChildActorComponent* TileMarker;
+		UChildActorComponent* TileMarker;
 	
 	UPROPERTY()
-	FVector2D Coordinates;
+		FVector2D Coordinates;
 
 	UPROPERTY(BlueprintReadWrite, Replicated)
-	AGridCharacterC* OccupyingCharacter;
+		AGridCharacterC* OccupyingCharacter;
 	UPROPERTY(Replicated)
-	AGameMap* GameMapReference;
+		AGameMap* GameMapReference;
 	UPROPERTY()
-	int MovementCost;
+		int MovementCost;
 	
 	UPROPERTY(Replicated)
-	bool bVoid;
+		bool bVoid;
 
 private:
 	class UDataTable* EnvironmentData;
@@ -64,13 +64,13 @@ public:
 	//Set Up
 	void SetCoordinates(AGameMap* Map, int X, int Y);
 	UFUNCTION(NetMulticast, Reliable, WithValidation)
-	void SetVoid(bool bVoidParam);
+		void SetVoid(bool bVoidParam);
 	UFUNCTION(NetMulticast, Reliable, WithValidation)
-	void SetAtmosphere(EEnvironmentEnum Environment);
+		void SetAtmosphere(EEnvironmentEnum Environment);
 	
 	//Utility
 	UFUNCTION(NetMulticast, Reliable, WithValidation)
-	void SetOccupyingCharacter(AGridCharacterC* NewOccupier);
+		void SetOccupyingCharacter(AGridCharacterC* NewOccupier);
 	AMapTile* LineTraceForTile(FVector Start);
 	int GetTotalMovementCost();
 	TArray<AMapTile*> GetFourNeighbouringTiles();
@@ -81,11 +81,11 @@ public:
 	void ClickedInPortalPlacementPhase();
 
 	UFUNCTION()
-	void OnBeginMouseOver(AActor* Component);
+		void OnBeginMouseOver(AActor* Component);
 	UFUNCTION()
-	void OnEndMouseOver(AActor* Component);
+		void OnEndMouseOver(AActor* Component);
 	UFUNCTION()
-	void OnMouseClicked(AActor* Component, FKey ButtonPressed);
+		void OnMouseClicked(AActor* Component, FKey ButtonPressed);
 
 	//Getters and Setters
 	AGridCharacterC* GetOccupyingCharacter();

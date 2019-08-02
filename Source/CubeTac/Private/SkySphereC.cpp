@@ -1,12 +1,14 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2019 James Vigor. All Rights Reserved.
 
 
 #include "SkySphereC.h"
+#include "Runtime/Engine/Classes/Components/DirectionalLightComponent.h"
 
 // Sets default values
 ASkySphereC::ASkySphereC()
 {
 	PrimaryActorTick.bCanEverTick = false;
+	bReplicates = true;
 
 	//Set up components
 	//-Scene Root
@@ -20,9 +22,11 @@ ASkySphereC::ASkySphereC()
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereMeshAsset(TEXT("/Engine/EditorMeshes/AssetViewer/Sphere_inversenormals.Sphere_inversenormals"));
 	if (SphereMeshAsset.Succeeded()) {
 		SphereMesh->SetStaticMesh(SphereMeshAsset.Object);
-		static ConstructorHelpers::FObjectFinder<UMaterialInterface> SkyMaterial(TEXT("/Game/Materials/Sky/Sky_Blue.Sky_Blue"));
+		static ConstructorHelpers::FObjectFinder<UMaterialInterface> SkyMaterial(TEXT("/Game/Materials/Sky/Sky_Woodlands.Sky_Woodlands"));
 		SphereMesh->SetMaterial(0, SkyMaterial.Object);
 	}
+	
+	SphereMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	//Environment Data Table
 	static ConstructorHelpers::FObjectFinder<UDataTable> EnvironmentDataAsset(TEXT("DataTable'/Game/Environment/Environment/EnvironmentColours.EnvironmentColours'"));
@@ -48,14 +52,19 @@ bool ASkySphereC::SetAtmosphere_Validate(EEnvironmentEnum Atmosphere)
 void ASkySphereC::SetAtmosphere_Implementation(EEnvironmentEnum Atmosphere)
 {
 	const UEnum* EnumPtr = FindObject<UEnum>(ANY_PACKAGE, TEXT("EEnvironmentEnum"), true);
-	FString enumString = EnumPtr->GetNameStringByIndex((int32)Atmosphere);
-	FName enumName = FName(*enumString.RightChop(4));
+	FString EnumString = EnumPtr->GetNameStringByIndex((int32)Atmosphere);
+	FName EnumName = FName(*EnumString.RightChop(4));
 	static const FString ContextString(TEXT("GENERAL"));
 
-	FEnvironment* foundData = EnvironmentData->FindRow<FEnvironment>(enumName, ContextString, true);
+	FEnvironment* FoundData = EnvironmentData->FindRow<FEnvironment>(EnumName, ContextString, true);
 
-	SphereMesh->SetMaterial(0, (UMaterialInterface*)foundData->skyMaterial);
+	SphereMesh->SetMaterial(0, (UMaterialInterface*)FoundData->SkyMaterial);
 	if (WorldFogRef.IsValid()) {
-		WorldFogRef->GetComponent()->SetFogInscatteringColor(foundData->fogColour);
+		WorldFogRef->GetComponent()->SetFogInscatteringColor(FoundData->FogColour);
 	}
+
+	UDirectionalLightComponent* LightComponent = Cast<UDirectionalLightComponent>(Skylight->GetComponentByClass(UDirectionalLightComponent::StaticClass()));
+	LightComponent->SetLightBrightness(FoundData->LightIntensity);
+	LightComponent->UpdateColorAndBrightness();
+	
 }

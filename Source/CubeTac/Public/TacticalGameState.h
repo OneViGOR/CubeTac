@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2019 James Vigor. All Rights Reserved.
 
 #pragma once
 
@@ -25,11 +25,12 @@ protected:
 	UPROPERTY(Replicated)
 		EGamePhase GamePhase;
 	UPROPERTY(Replicated, BlueprintReadOnly)
-		int TeamPlaying;
+		int TeamPlaying = 1;
 	UPROPERTY(Replicated)
 		int NumberOfPlayers;
 
 public:
+	virtual void Tick(float DeltaTime) override;
 	UFUNCTION(BlueprintCallable)
 		EGamePhase GetGamePhase();
 	UFUNCTION(Server, Reliable, WithValidation, BlueprintCallable)

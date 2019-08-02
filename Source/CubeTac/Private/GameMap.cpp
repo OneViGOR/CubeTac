@@ -1,28 +1,27 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2019 James Vigor. All Rights Reserved.
 
 
 #include "GameMap.h"
-
-UFUNCTION(Server)
-template <class T>
-T* PlaceBlockageOnTile(AMapTile* Tile)
-{
-	Tile->Blockage = GetWorld()->SpawnActor<T>(T::StaticClass(), NAME_None, Tile->GetActorLocation(), Tile->GetActorRotation(), NULL, false, false, Owner, Instigator);
-	return actor;
-}
+#include "Blockage_TreeStump.h"
 
 // Sets default values
 AGameMap::AGameMap()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = false;
+	SetReplicates(true);
 
 	SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
 	RootComponent = SceneRoot;
 	
-	Midpoint = CreateDefaultSubobject<USceneComponent>(TEXT("Midpoint"));
-	Midpoint->SetupAttachment(RootComponent);
-	
+	//Initial Generation Settings
+	WorkingSeed = 0;
+	Rows = 10;
+	Columns = 10;
+	MaxTileHeight = 5.0f;
+	MaxSlopeHeight = 0.5f;
+	VoidWeight = 0.1f;
+	BlockageWeight = 0.0f;
 }
 
 // Called when the game starts or when spawned
@@ -37,30 +36,33 @@ void AGameMap::GenerateMap()
 {
 	if (this->HasAuthority()) {
 		BuildMapGrid();
-		PlaceMidpoint();
 		for (TActorIterator<AMapTile> Itr(GetWorld()); Itr; ++Itr)
 		{
 			FRandomStream GenerationStream;
 			GenerationStream.Initialize(WorkingSeed);
 			float BlockageRoll = GenerationStream.FRandRange(0.0f, 1.0f);
 			if (BlockageRoll < BlockageWeight && !Itr->GetVoid()) {
-				//PLACE BLOCKAGE ON TILE
+				PlaceBlockageOnTile(*Itr, ABlockage_TreeStump::StaticClass());
 			}
 
 			WorkingSeed = FMath::FloorToInt(GenerationStream.FRandRange(0.0f, 999999.0f));
 		}
+
+		
 	}
 }
 
-bool AGameMap::RegenerateMap_Validate(int NewSeed, float TileHeightParam, float SlopeHeightParam, float VoidWeightParam, float BlockageWeightParam)
+bool AGameMap::RegenerateMap_Validate(int NewSeed, int RowsParam, int ColumnsParam, float TileHeightParam, float SlopeHeightParam, float VoidWeightParam, float BlockageWeightParam)
 {
 	return true;
 }
 
-void AGameMap::RegenerateMap_Implementation(int NewSeed, float TileHeightParam, float SlopeHeightParam, float VoidWeightParam, float BlockageWeightParam)
+void AGameMap::RegenerateMap_Implementation(int NewSeed, int RowsParam, int ColumnsParam, float TileHeightParam, float SlopeHeightParam, float VoidWeightParam, float BlockageWeightParam)
 {
 	DestroyMap();
 	WorkingSeed = FMath::Clamp(NewSeed, 0, 999999);
+	Rows = RowsParam;
+	Columns = ColumnsParam;
 	MaxTileHeight = TileHeightParam;
 	MaxSlopeHeight = SlopeHeightParam;
 	VoidWeight = VoidWeightParam;
@@ -75,6 +77,8 @@ void AGameMap::BuildMapGrid()
 	for (int i = 0; i < TileGrid.Num(); i++) {
 		UE_LOG(LogTemp, Warning, TEXT("Rows: %d"), TileGrid[i].Tiles.Num());
 
+		FVector OriginCorner = FVector((Rows * -50) + 50, (Columns * -50) + 50, 0.0f);
+
 		for (int j = 0; j < TileGrid[i].Tiles.Num(); j++) {
 			UE_LOG(LogTemp, Warning, TEXT("Tile Spawn"));
 			//Set up child actor
@@ -82,7 +86,7 @@ void AGameMap::BuildMapGrid()
 			NewTile->RegisterComponent();
 			NewTile->SetChildActorClass(AMapTile::StaticClass());
 			NewTile->SetupAttachment(RootComponent);
-			NewTile->SetRelativeLocation(FVector(i, j, TileGrid[i].Tiles[j].Height) * 100);
+			NewTile->SetRelativeLocation(FVector(i, j, TileGrid[i].Tiles[j].Height) * 100 + OriginCorner);
 
 			//Set up tile
 			TileGrid[i].Tiles[j].Tile = Cast<AMapTile>(NewTile->GetChildActor());
@@ -131,13 +135,6 @@ void AGameMap::CreateGridArray()
 	bSetUpInProgress = false;
 }
 
-void AGameMap::PlaceMidpoint()
-{
-	float XCoord = (float)(Rows * 50) - 50;
-	float YCoord = (float)(Columns * 50) - 50;
-	Midpoint->SetRelativeLocation(FVector(XCoord, YCoord, 0.0f));
-}
-
 void AGameMap::DestroyMap()
 {
 	for (TActorIterator<AMapTile> Itr(GetWorld()); Itr; ++Itr)
@@ -152,6 +149,24 @@ void AGameMap::DestroyMap()
 
 	TileGrid.Empty();
 }
+
+
+bool AGameMap::PlaceBlockageOnTile_Validate(AMapTile* Tile, TSubclassOf<ABlockageC> BlockageClass)
+{
+	return true;
+}
+
+void AGameMap::PlaceBlockageOnTile_Implementation(AMapTile* Tile, TSubclassOf<ABlockageC> BlockageClass)
+{
+	FVector Location = Tile->GetActorLocation();
+	FRotator Rotation = Tile->GetActorRotation();
+	FActorSpawnParameters SpawnParameters = FActorSpawnParameters();
+	SpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	ABlockageC* NewBlockage = GetWorld()->SpawnActor<ABlockageC>(BlockageClass, Location, Rotation, SpawnParameters);
+	Tile->Blockage = NewBlockage;
+}
+
 
 FNeighbouringTileHeights AGameMap::GetNeighbouringTileHeights(int TileX, int TileY)
 {

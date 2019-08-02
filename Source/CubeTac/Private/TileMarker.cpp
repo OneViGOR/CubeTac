@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2019 James Vigor. All Rights Reserved.
 
 #include "TileMarker.h"
 #include "GridCharacterC.h"
@@ -57,6 +57,7 @@ ATileMarker::ATileMarker()
 	}
 
 	MarkerMesh->SetMaterial(0, MaterialMouseOver);
+	MarkerMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 	//-Particle Systems
 	ParticleMouseOver = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("ParticleMouseOver"));

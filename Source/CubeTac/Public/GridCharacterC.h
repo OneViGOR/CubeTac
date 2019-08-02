@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// Copyright 2019 James Vigor. All Rights Reserved.
 
 #pragma once
 
@@ -17,7 +17,7 @@ struct FCharacterAbility {
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
-		FString Name;
+		FText Name;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
 		UTexture2D *Icon;
@@ -52,9 +52,24 @@ struct FCharacterAbility {
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
 		bool bAffectsBlockages;
 
-	// Constructor
+	// Constructors
+	FCharacterAbility(FString NameParam, UTexture2D* IconParam, float ImpactParam, int RangeParam, int CostParam, bool bSelfParam, bool bEnemiesParam, bool bAlliesParam, bool bTilesParam, bool bAlliedPortalParam, bool bEnemyPortalParam, bool bBlockagesParam) {
+		Name = FText::FromString(NameParam);
+		Icon = IconParam;
+		Impact = ImpactParam;
+		Range = RangeParam;
+		Cost = CostParam;
+		bAffectsSelf = bSelfParam;
+		bAffectsEnemies = bEnemiesParam;
+		bAffectsAllies = bAlliesParam;
+		bAffectsTiles = bTilesParam;
+		bAffectsAlliedPortal = bAlliedPortalParam;
+		bAffectsEnemyPortal = bEnemyPortalParam;
+		bAffectsBlockages = bBlockagesParam;
+	}
+
 	FCharacterAbility() {
-		Name = "DefaultAbility";
+		Name = FText::FromString(FString("DefaultAbility"));
 		Icon = NULL;
 		Impact = 0.0f;
 		Range = 0;
@@ -125,15 +140,14 @@ protected:
 		bool bIgnoresBlockageSlowing;
 
 	UPROPERTY ()
-		FTimeline SpawnDissolveTimeline;
+	class UTimelineComponent* DissolveTimeline;
+	class UCurveFloat* FCurve;
+	
 
 	TSubclassOf<class UParticleSystem> Particle;
 	UParticleSystem* DeathParticles;
 
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
-
+public:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
@@ -157,11 +171,14 @@ public:
 	void DetermineCurrentTile();
 
 	// Abilities
-	void SelectAbility(int Ability);
+	UFUNCTION(BlueprintCallable)
+		void SelectAbility(int Ability);
 	TArray<AMapTile*> FindAbilityRange(int Range);
 	TArray<AMapTile*> ExpandAbilityRange(TArray<AMapTile*> CurrentRange, int Range);
 	void CancelTargetting();
 
+	UFUNCTION(Server, Reliable, WithValidation)
+		void PlaceBlockageOnTile(AMapTile* Tile, TSubclassOf<ABlockageC> BlockageClass);
 	UFUNCTION(Server, Reliable, WithValidation)
 		void DestroyBlockageOnTile(AMapTile* Tile);
 
@@ -178,7 +195,7 @@ public:
 
 	// Turn Management
 	UFUNCTION (Server, Reliable, WithValidation)
-		void NewTurnStart();
+		virtual void NewTurnStart();
 	UFUNCTION (NetMulticast, Reliable, WithValidation)
 		void ResetMovesAndEnergy();
 
@@ -190,9 +207,9 @@ public:
 	UFUNCTION(NetMulticast, Unreliable, WithValidation)
 		void SpawnParticleEffectMulticast(UParticleSystem* EmitterTemplate, FVector Location);
 
-	void SpawnDissolve();
 	void SetTeamLightColour();
 
+	UFUNCTION()
 	void DissolveTick(float Value);
 
 
@@ -200,5 +217,18 @@ public:
 	void SetSelected(bool bNewValue);
 	bool GetSelected();
 
+	void SetMovesRemaining(int NewMoves);
+	void SpendMoves(int Reduction);
+	int GetMovesRemaining();
+
+	void SetEnergy(int NewEnergy);
+	void SpendEnergy(int Reduction);
+	int GetEnergy();
+
+	AMapTile* GetCurrentTile();
+
+	void SetTeam(int NewTeam);
 	int GetTeam();
+
+	bool DoesIgnoreBlockageSlowing();
 };
