@@ -1,7 +1,7 @@
 // Copyright 2019 James Vigor. All Rights Reserved.
 
 #include "TileMarker.h"
-#include "GridCharacterC.h"
+#include "GridUnit.h"
 #include "Components/StaticMeshComponent.h"
 #include "Runtime/CoreUObject/Public/UObject/ConstructorHelpers.h"
 
@@ -139,8 +139,8 @@ void ATileMarker::UpdateAppearance(AMapTile* Tile)
 				MarkerMesh->SetMaterial(0, MaterialTarget);
 				ParticleTarget->Activate();
 			}
-			else if (Tile->GetOccupyingCharacter()->IsValidLowLevel()){
-				if (Tile->GetOccupyingCharacter()->GetSelected()) {
+			else if (Tile->GetOccupyingUnit() != nullptr){
+				if (Tile->GetOccupyingUnit()->GetSelected()) {
 					MarkerMesh->SetMaterial(0, MaterialSelected);
 					ParticleSelected->Activate();
 				}

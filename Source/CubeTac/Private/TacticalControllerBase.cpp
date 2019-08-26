@@ -2,9 +2,10 @@
 
 
 #include "TacticalControllerBase.h"
-#include "Engine.h"
 #include "CubeTacGameModeBase.h"
+#include "Engine.h"
 #include "UnrealNetwork.h"
+#include "Online.h"
 #include "Blueprint/UserWidget.h"
 
 ATacticalControllerBase::ATacticalControllerBase()
@@ -21,7 +22,7 @@ void ATacticalControllerBase::GetLifetimeReplicatedProps(TArray< FLifetimeProper
 
 	//Replicate to all
 	DOREPLIFETIME(ATacticalControllerBase, Team);
-	DOREPLIFETIME(ATacticalControllerBase, SelectedCharacter);
+	DOREPLIFETIME(ATacticalControllerBase, SelectedUnit);
 	DOREPLIFETIME(ATacticalControllerBase, bTurn);
 	DOREPLIFETIME(ATacticalControllerBase, OwnedPortal);
 }
@@ -35,25 +36,62 @@ void ATacticalControllerBase::BeginPlay()
 	SetInputMode(InputStruct);
 }
 
+
+// Destroy session and return to main menu
+void ATacticalControllerBase::LeaveGame()
+{
+	// WIP
+}
+
+// Returns this player to the main menu level with a reason provided
+void ATacticalControllerBase::ClientReturnToMainMenuWithTextReason(const FText& ReturnReason)
+{
+	GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red, TEXT("Return client to menu"));
+	Super::ClientReturnToMainMenuWithTextReason(ReturnReason);
+}
+
+
+// End this player's turn and pass to the next player in the turn order
+// - Validation
 bool ATacticalControllerBase::EndTurn_Validate()
 {
 	return true;
 }
 
+// - Implementation
 void ATacticalControllerBase::EndTurn_Implementation()
 {
-	UE_LOG(LogTemp, Warning, TEXT("End Turn"));
 	GetWorld()->GetAuthGameMode<ACubeTacGameModeBase>()->PassTurn(this);
-	if (SelectedCharacter != nullptr) { //Pointed out by crash report
-		SelectedCharacter->CancelAllNavigableLocations();
-		SelectedCharacter->CancelTargetting();
+	if (SelectedUnit != nullptr) {
+		SelectedUnit->CancelAllNavigableLocations();
+		SelectedUnit->CancelTargetting();
 	}
 }
 
+
+// End the game with the victory state of this player
+// - Validation
+bool ATacticalControllerBase::EndGame_Validate( EVictoryState VictoryState)
+{
+	return true;
+}
+
+// - Implementation
+void ATacticalControllerBase::EndGame_Implementation(EVictoryState VictoryState)
+{
+	if (GameWidgetReference != nullptr) {
+		GameWidgetReference->DisplayEndGameScreen(VictoryState);
+	}
+}
+
+
+// Runs when the player enters the lobby to set up the user interface
+// - Validation
 bool ATacticalControllerBase::SetUpLobbyUI_Validate() {
 	return true;
 }
 
+// - Implementation
 void ATacticalControllerBase::SetUpLobbyUI_Implementation() {
 	if (LobbyWidget)
 	{
@@ -66,12 +104,16 @@ void ATacticalControllerBase::SetUpLobbyUI_Implementation() {
 	}
 }
 
+
+// Runs when the player moves from the lobby to the game to set up the user interface
+// - Validation
 bool ATacticalControllerBase::SetUpGameUI_Validate() {
 	return true;
 }
 
+// - Implementation
 void ATacticalControllerBase::SetUpGameUI_Implementation() {
-	if (LobbyWidgetReference->IsValidLowLevel()) {
+	if (LobbyWidgetReference != nullptr) {
 		LobbyWidgetReference->RemoveFromParent();
 	}
 
@@ -86,28 +128,43 @@ void ATacticalControllerBase::SetUpGameUI_Implementation() {
 	}
 }
 
-bool ATacticalControllerBase::CharacterSelected_Validate(AGridCharacterC* NewCharacter)
+
+// Runs when a player selects a new unit to get a reference to it and to update the game UI accordingly
+// - Validation
+bool ATacticalControllerBase::UnitSelected_Validate(AGridUnit* NewUnit)
 {
 	return true;
 }
 
-void ATacticalControllerBase::CharacterSelected_Implementation(AGridCharacterC* NewCharacter)
+// - Implementation
+void ATacticalControllerBase::UnitSelected_Implementation(AGridUnit* NewUnit)
 {
-	SelectedCharacter = NewCharacter;
-	UISelect(NewCharacter);
+	SelectedUnit = NewUnit;
+	UISelect(NewUnit);
 }
 
-APortalC* ATacticalControllerBase::GetPortal()
+
+// Returns a reference to the portal controlled by this player
+AUnit_Portal* ATacticalControllerBase::GetPortal()
 {
 	return OwnedPortal;
 }
 
-bool ATacticalControllerBase::UISelect_Validate(AGridCharacterC* NewCharacter)
+// Assign this player controller a new reference to the portal they own
+ void ATacticalControllerBase::SetPortal(AUnit_Portal* NewPortal)
+{
+	OwnedPortal = NewPortal;
+}
+
+// Tell the game interface widget to update with the newly selected unit
+ // - Validation
+bool ATacticalControllerBase::UISelect_Validate(AGridUnit* NewUnit)
 {
 	return true;
 }
 
-void ATacticalControllerBase::UISelect_Implementation(AGridCharacterC* NewCharacter)
+// - Implementation
+void ATacticalControllerBase::UISelect_Implementation(AGridUnit* NewUnit)
 {
-	GameWidgetReference->CharacterSelected(NewCharacter);
+	GameWidgetReference->UnitSelected(NewUnit);
 }

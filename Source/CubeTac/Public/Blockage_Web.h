@@ -3,18 +3,17 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GridCharacterC.h"
-#include "WebberC.generated.h"
+#include "BlockageC.h"
+#include "Blockage_Web.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class CUBETAC_API AWebberC : public AGridCharacterC
+class CUBETAC_API ABlockage_Web : public ABlockageC
 {
 	GENERATED_BODY()
-
+	
 public:
-	AWebberC();
-
+	ABlockage_Web();
 };

@@ -8,7 +8,7 @@
 ABlockage_TreeStump::ABlockage_TreeStump() {
 
 	//Set up blockage details
-	bObstructAllMovement = true;
+	bObstructAllMovement = true;	// Units cannot pass through tree stumps
 
 	//Set up components
 	//-Blockage Mesh
@@ -17,7 +17,7 @@ ABlockage_TreeStump::ABlockage_TreeStump() {
 		BlockageMesh->SetStaticMesh(BlockageMeshAsset.Object);
 
 	}
-	static ConstructorHelpers::FObjectFinder<UMaterialInterface> BlockageMaterial(TEXT("MaterialInstanceConstant'/Game/Materials/PlainColours/Wood.Wood'"));
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> BlockageMaterial(TEXT("MaterialInstanceConstant'/Game/Materials/PlainColours/Wood.Wood'")); //Material is not dynamic. The mesh has not been UV unwrapped or textured yet.
 	if (BlockageMaterial.Succeeded()) {
 		BlockageMesh->SetMaterial(0, BlockageMaterial.Object);
 	}

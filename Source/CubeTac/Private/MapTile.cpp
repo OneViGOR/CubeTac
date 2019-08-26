@@ -5,8 +5,8 @@
 #include "Engine.h"
 #include "TileMarker.h"
 #include "TacticalControllerBase.h"
-#include "GridCharacterC.h"
-#include "PortalC.h"
+#include "GridUnit.h"
+#include "Unit_Portal.h"
 #include "PlayerPawnC.h"
 #include "TacticalGameState.h"
 #include "UnrealNetwork.h"
@@ -75,6 +75,7 @@ AMapTile::AMapTile()
 	this->OnClicked.AddDynamic(this, &AMapTile::OnMouseClicked);
 }
 
+// Called when the game starts or when spawned
 void AMapTile::BeginPlay()
 {
 	Super::BeginPlay();
@@ -82,28 +83,34 @@ void AMapTile::BeginPlay()
 	SetHighlightMaterial();
 }
 
+// Sets up variable replication
 void AMapTile::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	//Replicate to all
-	DOREPLIFETIME(AMapTile, OccupyingCharacter);
+	DOREPLIFETIME(AMapTile, OccupyingUnit);
 	DOREPLIFETIME(AMapTile, GameMapReference);
 	DOREPLIFETIME(AMapTile, Blockage);
 	DOREPLIFETIME(AMapTile, bVoid);
 }
 
+// Set this tile up with a reference to the game map and coordinates within it
 void AMapTile::SetCoordinates(AGameMap* Map, int X, int Y)
 {
 	GameMapReference = Map;
 	Coordinates = FVector2D((float)X, (float)Y);
 }
 
+
+// Set this tile's void state. If true, its space in the map will appear and act unoccupied
+// - Validation
 bool AMapTile::SetVoid_Validate(bool bIsVoid)
 {
 	return true;
 }
 
+// - Implementation
 void AMapTile::SetVoid_Implementation(bool bVoidParam)
 {
 	bVoid = bVoidParam;
@@ -112,6 +119,7 @@ void AMapTile::SetVoid_Implementation(bool bVoidParam)
 	ShaftMesh->SetVisibility(!bVoid);
 	TileMarker->SetVisibility(!bVoid);
 
+	// Disable visibility collisisons if void, otherwise enable them. Disabled visibility collisions result in no mouse input events
 	if (bVoid) {
 		CapMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Ignore);
 		ShaftMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Ignore);
@@ -122,13 +130,18 @@ void AMapTile::SetVoid_Implementation(bool bVoidParam)
 	}
 }
 
+
+// Set the appearance of this map tile based on user preference
+// - Validation
 bool AMapTile::SetAtmosphere_Validate(EEnvironmentEnum Environment)
 {
 	return true;
 }
 
+// - Implementation
 void AMapTile::SetAtmosphere_Implementation(EEnvironmentEnum Environment)
 {
+	// Find data table row based on name of enumeration
 	const UEnum* EnumPtr = FindObject<UEnum>(ANY_PACKAGE, TEXT("EEnvironmentEnum"), true);
 	FString EnumString = EnumPtr->GetNameStringByIndex((int32)Environment);
 	FName EnumName = FName(*EnumString.RightChop(4));
@@ -136,30 +149,38 @@ void AMapTile::SetAtmosphere_Implementation(EEnvironmentEnum Environment)
 
 	FEnvironment* FoundData = EnvironmentData->FindRow<FEnvironment>(EnumName, ContextString, true);
 
+	// Set mesh materials to asset references from data table row
 	CapMesh->SetMaterial(0, (UMaterialInterface*)FoundData->TileCapMaterial);
 	ShaftMesh->SetMaterial(0, (UMaterialInterface*)FoundData->TileShaftMaterial);
 	
 }
 
-bool AMapTile::SetOccupyingCharacter_Validate(AGridCharacterC* NewOccupier)
+
+// Assign a reference to the unit occupying this tile
+// - Validation
+bool AMapTile::SetOccupyingUnit_Validate(AGridUnit* NewOccupier)
 {
 	return true;
 }
 
-void AMapTile::SetOccupyingCharacter_Implementation(AGridCharacterC* NewOccupier)
+// - Implementation
+void AMapTile::SetOccupyingUnit_Implementation(AGridUnit* NewOccupier)
 {
-	OccupyingCharacter = NewOccupier;
+	OccupyingUnit = NewOccupier;
 }
 
+
+// Cast a short line trace downwards to find a tile below the given point.Returns a reference to the tile, if found
 AMapTile* AMapTile::LineTraceForTile(FVector Start)
 {
 	FHitResult Hit(ForceInit);
 	FCollisionQueryParams CollisionParams;
-	FVector StartPoint = Start + FVector(0.0f, 0.0f, 100.0f);
+	FVector StartPoint = Start + FVector(0.0f, 0.0f, 100.0f); // Raise the start point a small amount to provide a greater margin
 	FVector EndPoint = Start + FVector(0.0f, 0.0f, -1000.0f);
 
-	GetWorld()->LineTraceSingleByObjectType(Hit, StartPoint, EndPoint, ECC_WorldDynamic, CollisionParams);
+	GetWorld()->LineTraceSingleByObjectType(Hit, StartPoint, EndPoint, ECC_WorldDynamic, CollisionParams); // Perform line trace
 
+	// Return tile if found. If not, return nullptr
 	if (Cast<AMapTile>(Hit.Actor)) {
 		AMapTile* ReturnTile = Cast<AMapTile>(Hit.Actor);
 		return ReturnTile;
@@ -169,15 +190,7 @@ AMapTile* AMapTile::LineTraceForTile(FVector Start)
 	}
 }
 
-int AMapTile::GetTotalMovementCost()
-{
-	int TotalCost = MovementCost;
-	if (Blockage != nullptr) {
-		TotalCost += Blockage->AdditionalMovementCost;
-	}
-	return TotalCost;
-}
-
+// Returns up to four tiles orthogonally adjacent to this one
 TArray<AMapTile*> AMapTile::GetFourNeighbouringTiles()
 {
 	TArray<AMapTile*> AllTilesFound;
@@ -208,6 +221,7 @@ TArray<AMapTile*> AMapTile::GetFourNeighbouringTiles()
 	return AllTilesFound;
 }
 
+// Update the colour and visibility of the tile marker based on known variables
 void AMapTile::SetHighlightMaterial()
 {
 	if (!bVoid) {
@@ -215,92 +229,136 @@ void AMapTile::SetHighlightMaterial()
 	}
 }
 
-// Mouse Control
+// Contains behaviour for when the tile is clicked during the Gameplay phase
 void AMapTile::ClickedInGamePhase()
 {
 	ATacticalControllerBase* PlayerController = Cast<ATacticalControllerBase>(GetWorld()->GetFirstPlayerController());
 
+	// Move the selected unit if this tile is a target for movement
 	if (ECurrentlyNavigable != ENavigationEnum::Nav_Unreachable) {
-		Cast<APlayerPawnC>(PlayerController->GetPawn())->MoveCharacter(this, PlayerController);
+		Cast<APlayerPawnC>(PlayerController->GetPawn())->MoveUnit(this, PlayerController);
 	}
 	else {
 		bool bSelectOccupiedCharacter = false;
 
-		if (PlayerController->SelectedCharacter != nullptr) {
+		// Determine whether the player is trying to select a unit occupying this tile
+		if (PlayerController->SelectedUnit != nullptr) {
 			if (bTargetable) {
-				if (Cast<APortalC>(PlayerController->SelectedCharacter)) {
-					APortalC* PortalReference = Cast<APortalC>(PlayerController->SelectedCharacter);
-					PortalReference->SpawnCharacter(this);
+				if (Cast<AUnit_Portal>(PlayerController->SelectedUnit)) {  // If targeted by portal, portal is trying to spawn something
+					AUnit_Portal* PortalReference = Cast<AUnit_Portal>(PlayerController->SelectedUnit);
+					PortalReference->SpawnUnit(this);
 				}
-				else {
-					PlayerController->SelectedCharacter->UseSelectedAbility(this);
+				else {  // If targeted by another unit, unit is trying to use an ability
+					PlayerController->SelectedUnit->UseSelectedAbility(this);
 				}
 			}
-			else {
-				PlayerController->SelectedCharacter->DeselectCharacter();
+			else {  // If neither targeted or navigable, player wishes to deselect a unit and may wish to select a different one instead
+				PlayerController->SelectedUnit->DeselectUnit();
 				bSelectOccupiedCharacter = true;
 			}
 		}
 		else {
-			bSelectOccupiedCharacter = true;
+			bSelectOccupiedCharacter = true;  // If the player does not already have a unit selected, player wishes to select a new unit
 		}
 
-		if (OccupyingCharacter != nullptr) {
-			if (bSelectOccupiedCharacter && (PlayerController->Team == OccupyingCharacter->GetTeam())) {
-				OccupyingCharacter->SelectCharacter();
+		// Ensure that a unit exists, is on the same team as the player and that the player wishes to select them before continuing
+		if (OccupyingUnit != nullptr) {
+			if (bSelectOccupiedCharacter && (PlayerController->Team == OccupyingUnit->GetTeam())) {
+				OccupyingUnit->SelectUnit();
 			}
 		}
 	}
 }
 
+// Contains behaviour for when the tile is clicked during the Portal Placement phase
 void AMapTile::ClickedInPortalPlacementPhase()
 {
 	ATacticalControllerBase* PlayerController = Cast<ATacticalControllerBase>(GetWorld()->GetFirstPlayerController());
 	APlayerPawnC* PlayerPawn = Cast<APlayerPawnC>(PlayerController->GetPawn());
 
-	if (PlayerController->bTurn && !(Blockage->IsValidLowLevel())) {
-		if (PlayerController->OwnedPortal->IsValidLowLevel()) {
-			PlayerPawn->DestroyActor(PlayerController->OwnedPortal);
+	//A portal may be spawned as long at it is the player's turn and this tile has no blockage in the way
+	if (PlayerController->bTurn && Blockage == nullptr) {
+		if (PlayerController->OwnedPortal != nullptr) {
+			PlayerController->OwnedPortal->GetCurrentTile()->SetOccupyingUnit(nullptr);
+			PlayerPawn->DestroyActor(PlayerController->OwnedPortal);  // Players may only have one portal each. Remove any other that might exist
 		}
 
 		PlayerPawn->SpawnPortal(this, PlayerController->Team);
 	}
 }
 
-void AMapTile::OnBeginMouseOver(AActor* Component) {
-	if (Cast<ATacticalGameState>(GWorld->GetGameState())->GetGamePhase() != EGamePhase::Phase_Lobby) {
+// Deferred function that runs when a player cursor hovers over this tile
+void AMapTile::OnBeginMouseOver(AActor* Actor) {
+	if (Cast<ATacticalGameState>(GWorld->GetGameState())->GetGamePhase() == EGamePhase::Phase_Portal || Cast<ATacticalGameState>(GWorld->GetGameState())->GetGamePhase() == EGamePhase::Phase_Game) {
 		bMouseOver = true;
 		SetHighlightMaterial();
 	}
 }
 
-void AMapTile::OnEndMouseOver(AActor* Component) {
+// Deferred function that runs when a player cursor is no longer hovering over this tile
+void AMapTile::OnEndMouseOver(AActor* Actor) {
 	bMouseOver = false;
 	SetHighlightMaterial();
 }
 
-void AMapTile::OnMouseClicked(AActor* Component, FKey ButtonPressed) {
+// Deferred function that runs when a player clicks on this tile
+void AMapTile::OnMouseClicked(AActor* Actor, FKey ButtonPressed) {
 	if (!bVoid) {
-		if (Cast<ATacticalGameState>(GWorld->GetGameState())->GetGamePhase() == EGamePhase::Phase_Portal) {
-			ClickedInPortalPlacementPhase();
+
+		// Run the correct code based on the current game phase
+		if (GWorld->GetGameState() == nullptr) {
+			UE_LOG(LogTemp, Error, TEXT("No gamestate found!"));
 		}
-		else if (Cast<ATacticalGameState>(GWorld->GetGameState())->GetGamePhase() == EGamePhase::Phase_Game) {
-			ClickedInGamePhase();
+		else {
+			if (Cast<ATacticalGameState>(GWorld->GetGameState())->GetGamePhase() == EGamePhase::Phase_Portal) {
+				ClickedInPortalPlacementPhase();
+			}
+			else if (Cast<ATacticalGameState>(GWorld->GetGameState())->GetGamePhase() == EGamePhase::Phase_Game) {
+				ClickedInGamePhase();
+			}
 		}
 	}
 }
 
+
 // Getters and Setters
-AGridCharacterC* AMapTile::GetOccupyingCharacter()
+
+// Returns the movement energy it takes to leave this tile, excluding that added by any blockage on this tile
+int AMapTile::GetBaseMovementCost()
 {
-	return OccupyingCharacter;
+	return MovementCost;
 }
 
+// Returns the total movement energy it takes to leave this tile, including that added by any blockage on this tile
+int AMapTile::GetTotalMovementCost()
+{
+	int TotalCost = MovementCost;
+	if (Blockage != nullptr) {
+		TotalCost += Blockage->AdditionalMovementCost; // Add additional cost from blockage if one is present
+	}
+
+	return TotalCost;
+}
+
+// Returns a pointer to the unit currently occupying this tile, if there is one
+AGridUnit* AMapTile::GetOccupyingUnit()
+{
+	return OccupyingUnit;
+}
+
+// Sets this tile's reference to its new assigned blockage
+void AMapTile::SetBlockage(ABlockageC * NewBlockage)
+{
+	Blockage = NewBlockage;
+}
+
+// Returns a pointer to the blockage currently on this tile, if there is one
 ABlockageC* AMapTile::GetBlockage()
 {
 	return Blockage;
 }
 
+// Returns true if this tile is considered void. Otherwise, returns false
 bool AMapTile::GetVoid()
 {
 	return bVoid;

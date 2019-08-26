@@ -29,7 +29,7 @@ APlayerPawnC::APlayerPawnC()
 	Camera->SetupAttachment(SpringArm);
 
 	//Set up asset references
-	//-Character Spawn Sound
+	//-Unit Spawn Sound
 	static ConstructorHelpers::FObjectFinder<UParticleSystem> SpawnParticleAsset(TEXT("ParticleSystem'/Game/VFX/Spawn.Spawn'"));
 	if (SpawnParticleAsset.Succeeded()) {
 		SpawnParticles = SpawnParticleAsset.Object;
@@ -40,7 +40,7 @@ APlayerPawnC::APlayerPawnC()
 		SpawnSound = SpawnSoundAsset.Object;
 	}
 
-	//-Character Spawn Attenuation
+	//-Unit Spawn Attenuation
 	static ConstructorHelpers::FObjectFinder<USoundAttenuation> SpawnAttenuationAsset(TEXT("SoundAttenuation'/Game/SFX/Action/SpawnAttenuation.SpawnAttenuation'"));
 	if (SpawnAttenuationAsset.Succeeded()) {
 		SpawnAttenuation = SpawnAttenuationAsset.Object;
@@ -60,44 +60,54 @@ void APlayerPawnC::SetupPlayerInputComponent(UInputComponent* PlayerInputCompone
 
 }
 
-// Input functions
+// Deferred function called when camera look input is pressed, used for controlling units
 void APlayerPawnC::InputCameraLookPressAction()
 {
 	bLooking = true;
 }
 
+// Deferred function called when camera look input is released, used for controlling units
 void APlayerPawnC::InputCameraLookReleaseAction()
 {
 	bLooking = false;
 }
 
+// Deferred function using the look right axis value, used for controlling the camera
 void APlayerPawnC::InputLookRightAxis(float Value)
 {
+	// Add a yaw angle scaled by the input value
 	if (bLooking) {
 		SpringArm->AddRelativeRotation(FRotator(0.0f, Value*2, 0.0f));
 	}
 }
 
+// Deferred function using the look up axis value, used for controlling the camera
 void APlayerPawnC::InputLookUpAxis(float Value)
 {
+	// Modify the world pitch angle of the spring arm by an amount scaled by the input value, and clamp the angle to sensible boundaries to keep the map in view
 	if (bLooking) {
 		SpringArm->SetWorldRotation(FRotator(FMath::ClampAngle(SpringArm->GetComponentRotation().Pitch + (Value * 2), 280.0f, 350.0f), SpringArm->GetComponentRotation().Yaw, 0.0f));
 	}
 }
 
+// Deferred function using the zoom axis value, used for controlling the camera zoom
 void APlayerPawnC::InputZoomAxis(float Value)
 {
+	// Add a modifier to the length of the spring arm, scaled by the input value, then clamp to sensible boundaries
 	if (!bLobbyView) {
 		SpringArm->TargetArmLength = (FMath::Clamp(SpringArm->TargetArmLength + (Value * -20), 700.0f, 1500.0f));
 	}
 }
 
 
+//Brings the players out of the lobby view and begins the match
+// - Validation
 bool APlayerPawnC::BeginGame_Validate()
 {
 	return true;
 }
 
+// - Implementation
 void APlayerPawnC::BeginGame_Implementation()
 {
 	bLobbyView = false;
@@ -106,122 +116,172 @@ void APlayerPawnC::BeginGame_Implementation()
 }
 
 
-bool APlayerPawnC::MoveCharacter_Validate(AMapTile* MoveToTile, ATacticalControllerBase* CharacterController)
+// Moves a selected unit to a new tile
+// - Validation
+bool APlayerPawnC::MoveUnit_Validate(AMapTile* MoveToTile, ATacticalControllerBase* PlayerController)
 {
 	return true;
 }
 
-void APlayerPawnC::MoveCharacter_Implementation(AMapTile* MoveToTile, ATacticalControllerBase* CharacterController)
+// - Implementation
+void APlayerPawnC::MoveUnit_Implementation(AMapTile* MoveToTile, ATacticalControllerBase* PlayerController)
 {
-	AGridCharacterC* MovingCharacter = CharacterController->SelectedCharacter;
-	AMapTile* CurrentTile = MovingCharacter->GetCurrentTile();
+	AGridUnit* MovingUnit = PlayerController->SelectedUnit;
+	AMapTile* CurrentTile = MovingUnit->GetCurrentTile();
 
-	MovingCharacter->GetCurrentTile()->SetOccupyingCharacter(nullptr);
-	MovingCharacter->SetActorLocation(MoveToTile->GetActorLocation());
-
+	// Rotate to face direction of movement
 	FRotator LookRotation = UKismetMathLibrary::FindLookAtRotation(CurrentTile->GetActorLocation(), MoveToTile->GetActorLocation());
-	MovingCharacter->SetActorRotation(FRotator(0.0f, LookRotation.Yaw, 0.0f));
-	MovingCharacter->DetermineCurrentTile();
-	ClientMovement(MovingCharacter, MoveToTile, CurrentTile);
+	MovingUnit->SetActorRotation(FRotator(0.0f, LookRotation.Yaw, 0.0f));
+
+	// Assign values and calculate aftermath
+	CurrentTile->SetOccupyingUnit(nullptr);
+	MovingUnit->SetActorLocation(MoveToTile->GetActorLocation());
+	MovingUnit->DetermineCurrentTile();
+	ClientMovement(MovingUnit, MoveToTile, CurrentTile);
 }
 
 
-bool APlayerPawnC::ClientMovement_Validate(AGridCharacterC * Character, AMapTile * DestinationTile, AMapTile * CurrentTile)
+// Determines the aftermath of the movement. Spends movement points and inflicts falling damage
+// - Validation
+bool APlayerPawnC::ClientMovement_Validate(AGridUnit* Unit, AMapTile * DestinationTile, AMapTile * CurrentTile)
 {
 	return true;
 }
 
-void APlayerPawnC::ClientMovement_Implementation(AGridCharacterC * Character, AMapTile * DestinationTile, AMapTile * CurrentTile)
+// Implementation
+void APlayerPawnC::ClientMovement_Implementation(AGridUnit* Unit, AMapTile * DestinationTile, AMapTile * CurrentTile)
 {
-	bool bCharacterDead = false;
+	bool bUnitDead = false;
 
 	if (DestinationTile->ECurrentlyNavigable == ENavigationEnum::Nav_Dangerous) {
-		//bCharacterDead = DETERMINE MOVEMENT DAMAGE
-		Character->SetMovesRemaining(0);
+		// Inflict falling damage and clear all remaining movement points
+		bUnitDead = DetermineMovementDamage(Unit, DestinationTile, CurrentTile);
+		Unit->SetMovesRemaining(0);
 	}
 	else {
 		int MovesSpent;
-		if (Character->DoesIgnoreBlockageSlowing()) {
-			MovesSpent = CurrentTile->GetTotalMovementCost();
+		if (Unit->DoesIgnoreBlockageSlowing()) {
+			// Find movement cost excluding blockage
+			MovesSpent = CurrentTile->GetBaseMovementCost();
 		}
 		else {
-			MovesSpent = 1;
+			// Find movement cost including blockage
+			MovesSpent = CurrentTile->GetTotalMovementCost();
 		}
-		Character->SpendMoves(MovesSpent);
+
+		Unit->SpendMoves(MovesSpent);
 	}
 
-	if (!bCharacterDead) {
-		Character->ShowNavigableLocations(DestinationTile);
+	// If unit is still alive, show the next possible set of locations it may move to
+	if (!bUnitDead) {
+		Unit->ShowNavigableLocations(DestinationTile);
 	}
 }
 
 
+// Destroys an actor, ensuring that all clients experience it
+// - Validation
 bool APlayerPawnC::DestroyActor_Validate(AActor* Target)
 {
-	return Target->IsValidLowLevel();
+	return Target != nullptr;
 }
 
+// - Implementation
 void APlayerPawnC::DestroyActor_Implementation(AActor* Target)
 {
 	Target->Destroy();
 }
 
 
+// Create a new portal unit
+// - Validation
 bool APlayerPawnC::SpawnPortal_Validate(AMapTile* Tile, int Team)
 {
 	return true;
 }
 
+// - Implementation
 void APlayerPawnC::SpawnPortal_Implementation(AMapTile* Tile, int Team)
 {
 	FTransform Transform = FTransform(Tile->GetActorRotation(), Tile->GetActorLocation(), FVector(1, 1, 1));
 
-	APortalC* NewPortal = GetWorld()->SpawnActorDeferred<APortalC>(APortalC::StaticClass(), Transform, this, this, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	// Ensure the portal's team is set before spawning finishes
+	AUnit_Portal* NewPortal = GetWorld()->SpawnActorDeferred<AUnit_Portal>(AUnit_Portal::StaticClass(), Transform, this, this, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 	if (NewPortal) {
 		NewPortal->SetTeam(Team);
 		UGameplayStatics::FinishSpawningActor(NewPortal, Transform);
 	}
 	
-	Cast<ATacticalControllerBase>(GetController())->OwnedPortal = NewPortal;
-	Tile->SetOccupyingCharacter(NewPortal);
-}
+	// Assign portal to the player controller and to the tile it spawned on
+	Cast<ATacticalControllerBase>(GetController())->SetPortal(NewPortal);
+	Tile->SetOccupyingUnit(NewPortal);
 
-
-bool APlayerPawnC::SpawnGridCharacter_Validate(TSubclassOf<class AGridCharacterC> CharacterClass, AMapTile* Tile, int Team, APortalC* Portal, int Cost)
-{
-	return true;
-}
-
-void APlayerPawnC::SpawnGridCharacter_Implementation(TSubclassOf<class AGridCharacterC> CharacterClass, AMapTile* Tile, int Team, APortalC* Portal, int Cost)
-{
-	FTransform Transform = FTransform(Tile->GetActorRotation(), Tile->GetActorLocation(), FVector(1, 1, 1));
-
-	AGridCharacterC* NewCharacter = GetWorld()->SpawnActorDeferred<AGridCharacterC>(CharacterClass, Transform, this, this, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-	if (NewCharacter) {
-		NewCharacter->SetTeam(Team);
-		UGameplayStatics::FinishSpawningActor(NewCharacter, Transform);
-	}
-
-	Tile->SetOccupyingCharacter(NewCharacter);
-
-	NewCharacter->SetOwner(this);
-
-	if (Portal != nullptr) {
-		Portal->SpendEnergy(Cost);
-	}
-
+	// Play particle effect and audio
 	SpawnEffects(SpawnParticles, Transform.GetLocation());
 }
 
 
+// Create a new unit
+// - Validation
+bool APlayerPawnC::SpawnGridUnit_Validate(TSubclassOf<class AGridUnit> UnitClass, AMapTile* Tile, int Team, AUnit_Portal* Portal, int Cost)
+{
+	return true;
+}
+
+// - Implementation
+void APlayerPawnC::SpawnGridUnit_Implementation(TSubclassOf<class AGridUnit> UnitClass, AMapTile* Tile, int Team, AUnit_Portal* Portal, int Cost)
+{
+	FTransform Transform = FTransform(Tile->GetActorRotation(), Tile->GetActorLocation(), FVector(1, 1, 1));
+
+	// Ensure the unit's team is set before spawning finishes
+	AGridUnit* NewUnit = GetWorld()->SpawnActorDeferred<AGridUnit>(UnitClass, Transform, this, this, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	if (NewUnit) {
+		NewUnit->SetTeam(Team);
+		UGameplayStatics::FinishSpawningActor(NewUnit, Transform);
+	}
+
+	Tile->SetOccupyingUnit(NewUnit);  // Assign unit to the tile it spawned on
+
+	NewUnit->SetOwner(this);
+
+	// Spend required energy
+	if (Portal != nullptr) {
+		Portal->SpendEnergy(Cost);
+	}
+
+	// Play particle effect and audio
+	SpawnEffects(SpawnParticles, Transform.GetLocation());
+}
+
+
+// Calls for the effects that play when a unit spawns
+// - Validation
 bool APlayerPawnC::SpawnEffects_Validate(UParticleSystem* EmitterTemplate, FVector Location)
 {
 	return true;
 }
 
+// - Implementation
 void APlayerPawnC::SpawnEffects_Implementation(UParticleSystem* EmitterTemplate, FVector Location)
 {
-	UE_LOG(LogTemp, Warning, TEXT("SpawnEffects"));
 	UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), EmitterTemplate, Location, FRotator::ZeroRotator, true);
 	UGameplayStatics::SpawnSoundAtLocation(GetWorld(), SpawnSound, Location, FRotator::ZeroRotator, 1, 1, 0, SpawnAttenuation, nullptr, true);
+}
+
+
+// Calculate and apply damage to a unit based on the distance it fell
+bool APlayerPawnC::DetermineMovementDamage(AGridUnit * Unit, AMapTile * FromTile, AMapTile * ToTile)
+{
+	//The difference in height between the destination and the fall damage threshold
+	float HeightDifference = FMath::Abs((FromTile->GetActorLocation().Z - Unit->GetMoveClimbHeight()) - ToTile->GetActorLocation().Z);
+
+	//Fall damage is HeightDifference / 5
+	int Damage = FMath::CeilToInt(HeightDifference / 5);
+
+	//Determine whether the damage is enough to kill the falling unit
+	bool bUnitDead = Unit->GetHealth() <= Damage;
+
+	//Apply damage to unit and report whether they were killed by the fall
+	Unit->DamageTarget(Unit, Damage);
+	return bUnitDead;
 }
