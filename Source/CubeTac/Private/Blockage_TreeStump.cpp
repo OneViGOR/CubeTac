@@ -17,7 +17,7 @@ ABlockage_TreeStump::ABlockage_TreeStump() {
 		BlockageMesh->SetStaticMesh(BlockageMeshAsset.Object);
 
 	}
-	static ConstructorHelpers::FObjectFinder<UMaterialInterface> BlockageMaterial(TEXT("MaterialInstanceConstant'/Game/Materials/PlainColours/Wood.Wood'")); //Material is not dynamic. The mesh has not been UV unwrapped or textured yet.
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> BlockageMaterial(TEXT("MaterialInstanceConstant'/Game/Materials/Blockages/TreeStumpDissolve.TreeStumpDissolve'"));
 	if (BlockageMaterial.Succeeded()) {
 		BlockageMesh->SetMaterial(0, BlockageMaterial.Object);
 	}

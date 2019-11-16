@@ -118,16 +118,32 @@ void APlayerPawnC::BeginGame_Implementation()
 
 // Moves a selected unit to a new tile
 // - Validation
-bool APlayerPawnC::MoveUnit_Validate(AMapTile* MoveToTile, ATacticalControllerBase* PlayerController)
+bool APlayerPawnC::MoveUnit_Validate(AMapTile* MoveToTile, ATacticalControllerBase* PlayerController, bool bShouldSpendEnergy = true)
 {
 	return true;
 }
 
 // - Implementation
-void APlayerPawnC::MoveUnit_Implementation(AMapTile* MoveToTile, ATacticalControllerBase* PlayerController)
+void APlayerPawnC::MoveUnit_Implementation(AMapTile* MoveToTile, ATacticalControllerBase* PlayerController, bool bShouldSpendEnergy = true)
 {
 	AGridUnit* MovingUnit = PlayerController->SelectedUnit;
 	AMapTile* CurrentTile = MovingUnit->GetCurrentTile();
+
+	MovingUnit->MovementArc->ClearSplinePoints();
+	FVector StartPoint = CurrentTile->GetActorLocation();
+	FVector EndPoint = MoveToTile->GetActorLocation();
+	float MoveHeight;
+	if (StartPoint.Z > EndPoint.Z) {
+		MoveHeight = StartPoint.Z + 50;
+	}
+	else {
+		MoveHeight = EndPoint.Z + 50;
+	}
+	FVector Midpoint = FVector((StartPoint.X + EndPoint.X) / 2, (StartPoint.Y + EndPoint.Y) / 2, MoveHeight);
+	
+	MovingUnit->MovementArc->AddSplinePoint(StartPoint, ESplineCoordinateSpace::World, false);
+	MovingUnit->MovementArc->AddSplinePoint(Midpoint, ESplineCoordinateSpace::World, false);
+	MovingUnit->MovementArc->AddSplinePoint(EndPoint, ESplineCoordinateSpace::World, true);
 
 	// Rotate to face direction of movement
 	FRotator LookRotation = UKismetMathLibrary::FindLookAtRotation(CurrentTile->GetActorLocation(), MoveToTile->GetActorLocation());
@@ -135,41 +151,42 @@ void APlayerPawnC::MoveUnit_Implementation(AMapTile* MoveToTile, ATacticalContro
 
 	// Assign values and calculate aftermath
 	CurrentTile->SetOccupyingUnit(nullptr);
-	MovingUnit->SetActorLocation(MoveToTile->GetActorLocation());
-	MovingUnit->DetermineCurrentTile();
-	ClientMovement(MovingUnit, MoveToTile, CurrentTile);
+	MovingUnit->BeginMovement();
+	ClientMovement(MovingUnit, MoveToTile, CurrentTile, bShouldSpendEnergy);
 }
 
 
 // Determines the aftermath of the movement. Spends movement points and inflicts falling damage
 // - Validation
-bool APlayerPawnC::ClientMovement_Validate(AGridUnit* Unit, AMapTile * DestinationTile, AMapTile * CurrentTile)
+bool APlayerPawnC::ClientMovement_Validate(AGridUnit* Unit, AMapTile * DestinationTile, AMapTile * CurrentTile, bool bShouldSpendEnergy = true)
 {
 	return true;
 }
 
 // Implementation
-void APlayerPawnC::ClientMovement_Implementation(AGridUnit* Unit, AMapTile * DestinationTile, AMapTile * CurrentTile)
+void APlayerPawnC::ClientMovement_Implementation(AGridUnit* Unit, AMapTile * DestinationTile, AMapTile * CurrentTile, bool bShouldSpendEnergy = true)
 {
 	bool bUnitDead = false;
 
 	if (DestinationTile->ECurrentlyNavigable == ENavigationEnum::Nav_Dangerous) {
 		// Inflict falling damage and clear all remaining movement points
 		bUnitDead = DetermineMovementDamage(Unit, DestinationTile, CurrentTile);
-		Unit->SetMovesRemaining(0);
+		if (bShouldSpendEnergy) Unit->SetMovesRemaining(0); // Don't consume energy if bShouldSpendEnergy is false
 	}
 	else {
-		int MovesSpent;
-		if (Unit->DoesIgnoreBlockageSlowing()) {
-			// Find movement cost excluding blockage
-			MovesSpent = CurrentTile->GetBaseMovementCost();
-		}
-		else {
-			// Find movement cost including blockage
-			MovesSpent = CurrentTile->GetTotalMovementCost();
-		}
+		if (bShouldSpendEnergy) { // Don't consume energy if bShouldSpendEnergy is false
+			int MovesSpent;
+			if (Unit->DoesIgnoreBlockageSlowing()) {
+				// Find movement cost excluding blockage
+				MovesSpent = CurrentTile->GetBaseMovementCost();
+			}
+			else {
+				// Find movement cost including blockage
+				MovesSpent = CurrentTile->GetTotalMovementCost();
+			}
 
-		Unit->SpendMoves(MovesSpent);
+			Unit->SpendMoves(MovesSpent);
+		}
 	}
 
 	// If unit is still alive, show the next possible set of locations it may move to

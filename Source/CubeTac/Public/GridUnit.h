@@ -6,6 +6,7 @@
 #include "EngineUtils.h"
 #include "ParticleDefinitions.h"
 #include "Runtime/Engine/Classes/Particles/ParticleSystem.h"
+#include "Components/SplineComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Runtime/Engine/Classes/Components/TimelineComponent.h"
 #include "MapTile.h"
@@ -22,7 +23,7 @@ enum class ERoleEnum : uint8 {
 	Role_ContSup		UMETA(DisplayName = "Control Support")
 };
 
-// An enumeration to hold basic information about a unit's ability
+// A structure to hold basic information about a unit's ability
 USTRUCT(BlueprintType)
 struct FUnitAbility {
 	GENERATED_USTRUCT_BODY()
@@ -46,6 +47,10 @@ struct FUnitAbility {
 	// The amount of energy that must be expended to use this ability
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
 		int Cost;
+
+	// If true, this ability is cast when its button is pressed. Otherwise, pressing the button requires the player to choose a target from the battlefield first
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
+		int bRequiresTargeting;
 
 	// Can this ability target the unit casting it?
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ability")
@@ -76,7 +81,7 @@ struct FUnitAbility {
 		bool bAffectsBlockages;
 
 	/**
-	*	Runs the map building algorithm with new settings
+	*	Contains all the basic data about an ability
 	*
 	*	@Param		NameParam				The name of the ability
 	*	@Param		IconParam				A pointer to the icon displayed on this ability's button
@@ -91,12 +96,13 @@ struct FUnitAbility {
 	*	@Param		bEnemyPortalParam		Can this ability target enemy portals?
 	*	@Param		bBlockagesParam			Can this ability target blockages?
 	*/
-	FUnitAbility(FString NameParam, UTexture2D* IconParam, float ImpactParam, int RangeParam, int CostParam, bool bSelfParam, bool bEnemiesParam, bool bAlliesParam, bool bTilesParam, bool bAlliedPortalParam, bool bEnemyPortalParam, bool bBlockagesParam) {
+	FUnitAbility(FString NameParam, UTexture2D* IconParam, float ImpactParam, int RangeParam, int CostParam, bool bTargetParam, bool bSelfParam, bool bEnemiesParam, bool bAlliesParam, bool bTilesParam, bool bAlliedPortalParam, bool bEnemyPortalParam, bool bBlockagesParam) {
 		Name = FText::FromString(NameParam);
 		Icon = IconParam;
 		Impact = ImpactParam;
 		Range = RangeParam;
 		Cost = CostParam;
+		bRequiresTargeting = bTargetParam;
 		bAffectsSelf = bSelfParam;
 		bAffectsEnemies = bEnemiesParam;
 		bAffectsAllies = bAlliesParam;
@@ -113,6 +119,7 @@ struct FUnitAbility {
 		Impact = 0.0f;
 		Range = 0;
 		Cost = 0;
+		bRequiresTargeting = true;
 		bAffectsSelf = false;
 		bAffectsEnemies = false;
 		bAffectsAllies = false;
@@ -121,6 +128,40 @@ struct FUnitAbility {
 		bAffectsEnemyPortal = false;
 		bAffectsBlockages = false;
 	}
+};
+
+// A structure used to build a unit's sound bank
+USTRUCT(BlueprintType)
+struct FSoundBank : public FTableRowBase {
+	GENERATED_USTRUCT_BODY()
+
+	// COMMENT
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		TArray<USoundBase*> Spawn;
+
+	// COMMENT
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		TArray<USoundBase*> Selected;
+
+	// COMMENT
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		TArray<USoundBase*> MoveStart;
+
+	// COMMENT
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		TArray<USoundBase*> MoveEnd;
+
+	// COMMENT
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		TArray<USoundBase*> Damaged;
+
+	// COMMENT
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		TArray<USoundBase*> Healed;
+
+	// COMMENT
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		TArray<USoundBase*> Killed;
 };
 
 UCLASS()
@@ -132,6 +173,9 @@ public:
 	// Sets default values for this pawn's properties
 	AGridUnit();
 
+	UPROPERTY()
+		USplineComponent* MovementArc;
+
 protected:
 	/**
 	*   FUNCTIONS
@@ -139,6 +183,7 @@ protected:
 
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaTime) override;
 	
 	/**
 	*   COMPONENTS
@@ -155,6 +200,9 @@ protected:
 	// The plane underneath the unit which provides a visual representation of which team it belongs to
 	UPROPERTY()
 		UStaticMeshComponent* TeamPlane;
+
+	
+
 
 	/**
 	*   VARIABLES
@@ -173,7 +221,7 @@ protected:
 		UTexture2D* Icon;
 
 	// An enumeration that represents this unit's role in battle
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly)
 		ERoleEnum ERole;
 
 	// This unit's current health
@@ -200,7 +248,6 @@ protected:
 	UPROPERTY (BlueprintReadWrite, Replicated)
 		int MaxEnergy;
 
-
 	// A pointer to the tile this unit is currently occupying
 	UPROPERTY (BlueprintReadWrite, Replicated)
 		AMapTile* CurrentTile;
@@ -209,9 +256,22 @@ protected:
 	UPROPERTY (BlueprintReadWrite)
 		float MoveClimbHeight;
 
+	// Whether this unit should be moving along its spline (meant for motion between tiles)
+	bool bMoveAlongSpline;
+
+	// How far this unit is along its movement spline - Maximum value is the current length of the spline
+	float DistanceAlongSpline;
+
+	// How quickly this unit should move along its movement spline
+	float MovementSpeed;
+
 	// True if this unit is currently selected
 	UPROPERTY (BlueprintReadWrite)
 		bool bSelected;
+
+	// Basic data describing this unit's base ability
+	UPROPERTY(BlueprintReadOnly)
+		FUnitAbility BaseAbilityData;
 
 	// An array of basic data describing this unit's list of abilities
 	UPROPERTY (BlueprintReadWrite)
@@ -219,7 +279,7 @@ protected:
 
 	// The index for the currently selected ability
 	UPROPERTY (BlueprintReadWrite)
-		int SelectedAbility;
+		int SelectedAbility = -1;
 
 	// The unit's team as an integer 1-4
 	UPROPERTY (BlueprintReadWrite, meta = (ExposeOnSpawn = "true"), Replicated)
@@ -228,6 +288,16 @@ protected:
 	// True if this unit is not affected by the slowing effects of blockages
 	UPROPERTY (BlueprintReadWrite)
 		bool bIgnoresBlockageSlowing;
+
+	// A reference to the data table that holds the unit sound banks
+		class UDataTable* SoundBankTable;
+
+	// Sound bank for this unit
+		FSoundBank* SoundBank;
+
+	// Sound attenutation asset
+		USoundAttenuation* UnitVoiceAttenuation;
+
 
 	// Timeline for the spawn dissolve animation
 	UPROPERTY ()
@@ -255,13 +325,24 @@ protected:
 	// A reference to the particle system asset used when the unit dies
 	UParticleSystem* DeathParticles;
 
+
+	
+
 public:
+
+	// The unit tier determines how powerful a portal must be to spawn this unit. A portal can spawn units equal to or less than its current tier
+	UPROPERTY(BlueprintReadOnly)
+		int Tier;
+
 	/**
 	*   FUNCTIONS
 	*/
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+	// Finds the sound bank for this unit
+	void GetSoundBank();
 
 	// Handles the death of a unit
 	virtual void Death();
@@ -299,7 +380,7 @@ public:
 	*	@Param		Destination			The tile being considered
 	*/
 	UFUNCTION()
-		ENavigationEnum CanReachTile(AMapTile* Destination);
+		ENavigationEnum CanReachTile(AMapTile* FromTile, AMapTile* Destination);
 
 	/**
 	*	Highlights tiles this unit can reach when starting from a given tile
@@ -359,6 +440,10 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 		void DestroyBlockageOnTile(AMapTile* Tile);
 
+	// Initiates movement along the spline, to move this unit from one tile to the next
+	UFUNCTION()
+		void BeginMovement();
+	
 	/**
 	*	Use the selected ability with a given tile as the target
 	*
@@ -367,6 +452,13 @@ public:
 	UFUNCTION (Client, Reliable, WithValidation)
 		void UseSelectedAbility(AMapTile* TargetTile);
 
+	/**
+	*	The precise functionality of the unit's base ability
+	*
+	*	@Param		TargetTile			The tile that the ability will be directed towards
+	*/
+	virtual void BaseAbility(AMapTile* TargetTile);
+	
 	/**
 	*	The precise functionality of the first ability in this unit's AbilitySet array (index 0)
 	*
@@ -387,6 +479,13 @@ public:
 	*	@Param		TargetTile			The tile that the ability will be directed towards
 	*/
 	virtual void Ability3(AMapTile* TargetTile);
+
+	/**
+	*	An additional rule that determines whether the given tile can be affected by this unit's basic ability
+	*
+	*	@Param		TargetTile			The tile that the ability will be directed towards
+	*/
+	virtual bool BaseAbilityRule(AMapTile* TargetTile);
 
 	/**
 	*	An additional rule that determines whether the given tile can be affected by the first ability in this unit's AbilitySet array (index 0)
@@ -430,6 +529,19 @@ public:
 	UFUNCTION(NetMulticast, Unreliable, WithValidation)
 		void SpawnParticleEffectMulticast(UParticleSystem* EmitterTemplate, FVector Location);
 
+	/**
+	*	These functions funnel a call to spawn a sound effect from the client, through the server and out to all connected clients, so that all players can hear the same sound
+	*
+	*	@Param		Sound				A pointer to the audio file requested
+	*	@Param		Location			The world location the sound should spawn at
+	*/
+	UFUNCTION(Client, Unreliable, WithValidation)
+		void CallForSound(USoundBase* Sound, FVector Location);
+	UFUNCTION(Server, Unreliable, WithValidation)
+		void SpawnSoundServer(USoundBase* Sound, FVector Location);
+	UFUNCTION(NetMulticast, Unreliable, WithValidation)
+		void SpawnSoundMulticast(USoundBase* Sound, FVector Location);
+
 	// Set the material for the TeamPlane mesh to correctly represent the appropriate team
 	void SetTeamLightColour();
 
@@ -451,8 +563,8 @@ public:
 	// Returns the unit's current health
 	int GetHealth();
 
-	// Sets whether the unit is selected or not
-	void SetSelected(bool bNewValue);
+	// Returns the unit's tier
+	int GetTier();
 
 	// Returns true if the unit is currently selected. Otherwise, returns false
 	bool GetSelected();

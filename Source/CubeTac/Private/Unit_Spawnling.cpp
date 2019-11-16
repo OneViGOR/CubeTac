@@ -8,6 +8,8 @@ AUnit_Spawnling::AUnit_Spawnling() {
 	// Define unique traits for this unit
 	Name = FText::FromString("Spawnling");
 	IconAssetPath = "Texture2D'/Game/Textures/UI/AbilityIcons/Spawnling.Spawnling'";
+	ERole = ERoleEnum::Role_General;
+	Tier = 1;
 	Health = 100;
 	MaxHealth = 100;
 	MovesRemaining = 3;
@@ -16,6 +18,7 @@ AUnit_Spawnling::AUnit_Spawnling() {
 	MaxEnergy = 5;
 	MoveClimbHeight = 100.0f;
 	bIgnoresBlockageSlowing = false;
+	MovementSpeed = 550.0f;
 
 	//Unit Icon
 	static ConstructorHelpers::FObjectFinder<UTexture2D> UnitIcon(*IconAssetPath);
@@ -24,13 +27,16 @@ AUnit_Spawnling::AUnit_Spawnling() {
 	}
 
 	//Ability Icons
-	static ConstructorHelpers::FObjectFinder<UTexture2D> Icon1(TEXT("Texture2D'/Game/Textures/UI/AbilityIcons/Bolt.Bolt'"));    // Icon for first ability, 'Fire'
-	static ConstructorHelpers::FObjectFinder<UTexture2D> Icon2(TEXT("Texture2D'/Game/Textures/UI/AbilityIcons/Heal.Heal'"));	// Icon for second ability, 'Heal'
-	static ConstructorHelpers::FObjectFinder<UTexture2D> Icon3(TEXT("Texture2D'/Game/Textures/UI/AbilityIcons/Spike.Spike'"));	// Icon for third ability, 'Obstruct'
+	static ConstructorHelpers::FObjectFinder<UTexture2D> BaseIcon(TEXT("Texture2D'/Game/Textures/UI/AbilityIcons/Heal.Heal'"));     // Icon for base ability, 'Bite'
+	static ConstructorHelpers::FObjectFinder<UTexture2D> Icon1(TEXT("Texture2D'/Game/Textures/UI/AbilityIcons/Bolt.Bolt'"));		// Icon for first ability, 'Spit'
+	//static ConstructorHelpers::FObjectFinder<UTexture2D> Icon2(TEXT("Texture2D'/Game/Textures/UI/AbilityIcons/Heal.Heal'"));		// Icon for second ability, 'Heal'
+	//static ConstructorHelpers::FObjectFinder<UTexture2D> Icon3(TEXT("Texture2D'/Game/Textures/UI/AbilityIcons/Spike.Spike'"));		// Icon for third ability, 'Obstruct'
 
-	AbilitySet.Add(FUnitAbility("Fire", Icon1.Object, 300.0f, 2, 2, false, true, false, false, false, true, false));      // Data structure for first ability, 'Fire'
-	AbilitySet.Add(FUnitAbility("Heal", Icon2.Object, 30.0f, 0, 2, true, false, true, false, false, false, false));		  // Data structure for second ability, 'Heal'
-	AbilitySet.Add(FUnitAbility("Obstruct", Icon3.Object, 0.0f, 4, 5, false, false, false, true, false, false, false));	  // Data structure for third ability, 'Obstruct'
+	// Ability Data
+	BaseAbilityData = FUnitAbility("Bite", BaseIcon.Object, 30.0f, 1, 2, true, false, true, false, false, false, true, false);      // Data structure for base ability, 'Bite'
+	AbilitySet.Add(FUnitAbility("Spit", Icon1.Object, 25.0f, 2, 2, true, false, true, false, false, false, true, false));        // Data structure for first ability, 'Spit'
+	//AbilitySet.Add(FUnitAbility("Heal", Icon2.Object, 30.0f, 0, 2, true, true, false, true, false, false, false, false));		  // Data structure for second ability, 'Heal'
+	//AbilitySet.Add(FUnitAbility("Obstruct", Icon3.Object, 0.0f, 4, 5, true, false, false, false, true, false, false, false));	  // Data structure for third ability, 'Obstruct'
 
 	//Set up components
 	//-Unit Mesh
@@ -57,30 +63,36 @@ AUnit_Spawnling::AUnit_Spawnling() {
 		AttackParticles = Cast<UParticleSystem>(AttackParticleSystemClass.Object);
 	}
 
-	static ConstructorHelpers::FObjectFinder<UParticleSystem> HealParticleSystemClass(TEXT("ParticleSystem'/Game/VFX/Heal.Heal'"));
+	/*static ConstructorHelpers::FObjectFinder<UParticleSystem> HealParticleSystemClass(TEXT("ParticleSystem'/Game/VFX/Heal.Heal'"));
 	if (HealParticleSystemClass.Succeeded()) {
 		HealParticles = Cast<UParticleSystem>(HealParticleSystemClass.Object);
-	}
+	}*/
 }
 
-
 // Replace empty default ability functions with new ones
+void AUnit_Spawnling::BaseAbility(AMapTile* TargetTile)
+{
+	// 'Bite' ability
+	CallForParticles(AttackParticles, TargetTile->GetOccupyingUnit()->GetActorLocation());  // Play attack particle effect at target location
+	DamageTarget(TargetTile->GetOccupyingUnit(), BaseAbilityData.Impact);  // Inflict damage
+}
+
 void AUnit_Spawnling::Ability1(AMapTile* TargetTile)
 {
-	// 'Fire' ability
+	// 'Spit' ability
 	CallForParticles(AttackParticles, TargetTile->GetOccupyingUnit()->GetActorLocation());  // Play attack particle effect at target location
 	DamageTarget(TargetTile->GetOccupyingUnit(), AbilitySet[0].Impact);  // Inflict damage
 }
 
-void AUnit_Spawnling::Ability2(AMapTile* TargetTile)
-{
-	// 'Heal' ability
-	CallForParticles(HealParticles, TargetTile->GetOccupyingUnit()->GetActorLocation());  // Play healing particle effect at target location
-	DamageTarget(TargetTile->GetOccupyingUnit(), -(AbilitySet[1].Impact));  // Inflict negative damage (effectively healing)
-}
-
-void AUnit_Spawnling::Ability3(AMapTile* TargetTile)
-{
-	// 'Obstruct' ability
-	PlaceBlockageOnTile(TargetTile, ABlockage_TreeStump::StaticClass());  // Place blockage at target location
-}
+//void AUnit_Spawnling::Ability2(AMapTile* TargetTile)
+//{
+//	// 'Heal' ability
+//	CallForParticles(HealParticles, TargetTile->GetOccupyingUnit()->GetActorLocation());  // Play healing particle effect at target location
+//	DamageTarget(TargetTile->GetOccupyingUnit(), -(AbilitySet[1].Impact));  // Inflict negative damage (effectively healing)
+//}
+//
+//void AUnit_Spawnling::Ability3(AMapTile* TargetTile)
+//{
+//	// 'Obstruct' ability
+//	PlaceBlockageOnTile(TargetTile, ABlockage_TreeStump::StaticClass());  // Place blockage at target location
+//}

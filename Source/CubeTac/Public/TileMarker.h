@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "MapTile.h"
-#include "Runtime/Engine/Classes/Particles/ParticleSystemComponent.h"
 #include "GameFramework/Actor.h"
 #include "TileMarker.generated.h"
 

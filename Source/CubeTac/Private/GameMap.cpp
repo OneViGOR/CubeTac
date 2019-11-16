@@ -3,6 +3,7 @@
 
 #include "GameMap.h"
 #include "Blockage_TreeStump.h"
+#include "Blockage_EnergyGeyser.h"
 
 // Sets default values
 AGameMap::AGameMap()
@@ -22,6 +23,7 @@ AGameMap::AGameMap()
 	MaxSlopeHeight = 0.5f;
 	VoidWeight = 0.1f;
 	BlockageWeight = 0.0f;
+	GeyserWeight = 0.05f;
 }
 
 // Called when the game starts or when spawned
@@ -38,13 +40,26 @@ void AGameMap::GenerateMap()
 	if (this->HasAuthority()) {
 		BuildMapGrid();
 
+		// Determine whether each tile should have an energy geyser on it
+		for (TActorIterator<AMapTile> Itr(GetWorld()); Itr; ++Itr)
+		{
+			FRandomStream GenerationStream;
+			GenerationStream.Initialize(WorkingSeed);
+			float GeyserRoll = GenerationStream.FRandRange(0.0f, 1.0f);
+			if (GeyserRoll < GeyserWeight && !Itr->GetVoid()) {
+				PlaceBlockageOnTile(*Itr, ABlockage_EnergyGeyser::StaticClass());
+			}
+
+			WorkingSeed = FMath::FloorToInt(GenerationStream.FRandRange(0.0f, 999999.0f));
+		}
+
 		// Determine whether each tile should have a blockage on it
 		for (TActorIterator<AMapTile> Itr(GetWorld()); Itr; ++Itr)
 		{
 			FRandomStream GenerationStream;
 			GenerationStream.Initialize(WorkingSeed);
 			float BlockageRoll = GenerationStream.FRandRange(0.0f, 1.0f);
-			if (BlockageRoll < BlockageWeight && !Itr->GetVoid()) {
+			if (BlockageRoll < BlockageWeight && !Itr->GetVoid() && Itr->GetBlockage() == nullptr) {
 				PlaceBlockageOnTile(*Itr, ABlockage_TreeStump::StaticClass());
 			}
 
@@ -56,13 +71,13 @@ void AGameMap::GenerateMap()
 
 // Runs the map building algorithm with new settings
 // - Validation
-bool AGameMap::RegenerateMap_Validate(int NewSeed, int RowsParam, int ColumnsParam, float TileHeightParam, float SlopeHeightParam, float VoidWeightParam, float BlockageWeightParam)
+bool AGameMap::RegenerateMap_Validate(int NewSeed, int RowsParam, int ColumnsParam, float TileHeightParam, float SlopeHeightParam, float VoidWeightParam, float BlockageWeightParam, float GeyserWeightParam)
 {
 	return true;
 }
 
 // - Implementation
-void AGameMap::RegenerateMap_Implementation(int NewSeed, int RowsParam, int ColumnsParam, float TileHeightParam, float SlopeHeightParam, float VoidWeightParam, float BlockageWeightParam)
+void AGameMap::RegenerateMap_Implementation(int NewSeed, int RowsParam, int ColumnsParam, float TileHeightParam, float SlopeHeightParam, float VoidWeightParam, float BlockageWeightParam, float GeyserWeightParam)
 {
 	DestroyMap();  //Clear the space for a new map by removing the old one
 
@@ -74,6 +89,7 @@ void AGameMap::RegenerateMap_Implementation(int NewSeed, int RowsParam, int Colu
 	MaxSlopeHeight = SlopeHeightParam;
 	VoidWeight = VoidWeightParam;
 	BlockageWeight = BlockageWeightParam;
+	GeyserWeight = GeyserWeightParam;
 	GenerateMap();
 }
 

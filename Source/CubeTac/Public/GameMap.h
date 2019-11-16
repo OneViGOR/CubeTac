@@ -97,7 +97,7 @@ protected:
 	*	@Param		BlockageWeightParam	    The chance of each tile generating with a blockage on top
 	*/
 	UFUNCTION(Server, Reliable, WithValidation, BlueprintCallable)
-		void RegenerateMap(int NewSeed, int RowsParam, int ColumnsParam, float TileHeightParam, float SlopeHeightParam, float VoidWeightParam, float BlockageWeightParam);
+		void RegenerateMap(int NewSeed, int RowsParam, int ColumnsParam, float TileHeightParam, float SlopeHeightParam, float VoidWeightParam, float BlockageWeightParam, float GeyserWeightParam);
 	
 	// Generates tile data for the map and spawns the tiles accordingly
 	UFUNCTION()
@@ -223,6 +223,10 @@ protected:
 	//The chance of each tile generating with a blockage on top
 	UPROPERTY(EditAnywhere, Category = "Map|Settings")
 		float BlockageWeight;
+
+	//The chance of each tile generating with an energy geyser on top
+	UPROPERTY(EditAnywhere, Category = "Map|Settings")
+		float GeyserWeight;
 
 	//An enumeration to determine the environmental colour scheme
 	UPROPERTY()

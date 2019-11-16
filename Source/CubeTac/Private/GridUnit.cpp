@@ -1,6 +1,5 @@
 // Copyright 2019 James Vigor. All Rights Reserved.
 
-
 #include "GridUnit.h"
 #include "Unit_Portal.h"
 #include "TacticalControllerBase.h"
@@ -15,7 +14,7 @@
 // Sets default values
 AGridUnit::AGridUnit()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
 	SetReplicates(true);
 
 	//Set up components
@@ -86,6 +85,21 @@ AGridUnit::AGridUnit()
 		DeathParticles = Cast<UParticleSystem>(ParticleSystemClass.Object);
 	}
 
+	//Movement Arc
+	MovementArc = CreateDefaultSubobject<USplineComponent>(TEXT("MovementSpline"));
+	MovementArc->bDrawDebug = true;
+
+	//Sound Bank Data Table
+	static ConstructorHelpers::FObjectFinder<UDataTable> SoundBankTableAsset(TEXT("DataTable'/Game/SFX/UnitSoundBanks.UnitSoundBanks'"));
+
+	if (SoundBankTableAsset.Succeeded()) {
+		SoundBankTable = SoundBankTableAsset.Object;
+	}
+
+	static ConstructorHelpers::FObjectFinder<USoundAttenuation> AttenuationAsset(TEXT("SoundAttenuation'/Game/SFX/Units/UnitVoiceAttenuation.UnitVoiceAttenuation'"));
+	if (AttenuationAsset.Succeeded()) {
+		UnitVoiceAttenuation = AttenuationAsset.Object;
+	}
 }
 
 // Sets up variable replication
@@ -108,16 +122,50 @@ void AGridUnit::BeginPlay()
 	Super::BeginPlay();
 	DetermineCurrentTile();
 	SetTeamLightColour();
+	GetSoundBank();
 
 	// Make a dynamic material from the mesh default material
 	DynMaterial = UnitMesh->CreateDynamicMaterialInstance(0, UnitMesh->GetMaterial(0));
 	SpawnDissolveTimeline->PlayFromStart();
+
+	if (SoundBank != nullptr) {
+		CallForSound(SoundBank->Spawn[FMath::RandRange(0, SoundBank->Spawn.Num() - 1)], GetActorLocation());
+	}
+}
+
+void AGridUnit::Tick(float DeltaTime)
+{
+	if (bMoveAlongSpline) {
+		DistanceAlongSpline = FMath::Clamp(DistanceAlongSpline + (DeltaTime * MovementSpeed), 0.0f, MovementArc->GetSplineLength());
+		SetActorLocation(MovementArc->GetLocationAtDistanceAlongSpline(DistanceAlongSpline, ESplineCoordinateSpace::World));
+		if (DistanceAlongSpline == MovementArc->GetSplineLength()) {
+			bMoveAlongSpline = false;
+			DistanceAlongSpline = 0.0f;
+			DetermineCurrentTile();
+			if (SoundBank != nullptr) {
+				CallForSound(SoundBank->MoveEnd[FMath::RandRange(0, SoundBank->MoveEnd.Num() - 1)], GetActorLocation());
+			}
+		}
+	}
 }
 
 // Called to bind functionality to input
 void AGridUnit::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
+}
+
+// Finds the sound bank for this unit
+void AGridUnit::GetSoundBank()
+{
+	// Find the name of the data rable row based on the name of the enumeration
+	int IndexOfLastUnderscore;
+	GetName().FindLastChar('_', IndexOfLastUnderscore);
+	FName EnumName = FName(*GetName().LeftChop(GetName().Len() - IndexOfLastUnderscore));
+	static const FString ContextString(TEXT("GENERAL"));
+
+	// Isolate the data table row and store its contents
+	SoundBank = SoundBankTable->FindRow<FSoundBank>(EnumName, ContextString, true);
 }
 
 // Handles the death of a unit
@@ -140,6 +188,19 @@ float AGridUnit::TakeDamage(float DamageAmount, struct FDamageEvent const & Dama
 	Health = FMath::Clamp(Health - FMath::TruncToInt(DamageAmount), 0, MaxHealth);
 	if (Health == 0) {
 		Death();
+		if (SoundBank != nullptr) {
+			CallForSound(SoundBank->Killed[FMath::RandRange(0, SoundBank->Killed.Num() - 1)], GetActorLocation());
+		}
+	}
+	else {
+		if (SoundBank != nullptr) {
+			if (DamageAmount > 0) {
+				CallForSound(SoundBank->Damaged[FMath::RandRange(0, SoundBank->Damaged.Num() - 1)], GetActorLocation());
+			}
+			else if (DamageAmount < 0) {
+				CallForSound(SoundBank->Healed[FMath::RandRange(0, SoundBank->Healed.Num() - 1)], GetActorLocation());
+			}
+		}
 	}
 	return Health;
 }
@@ -163,6 +224,10 @@ void AGridUnit::DamageTarget_Implementation(AActor* DamagedActor, float Damage)
 // Select this unit so that the controlling player can use it
 void AGridUnit::SelectUnit()
 {
+	if (SoundBank != nullptr) {
+		UGameplayStatics::PlaySound2D(GetWorld(), SoundBank->Selected[FMath::RandRange(0, SoundBank->Selected.Num() - 1)]);
+	}
+
 	bSelected = true;
 	ATacticalControllerBase* PlayerController = Cast<ATacticalControllerBase>(GetWorld()->GetFirstPlayerController());
 	PlayerController->UnitSelected(this);
@@ -185,7 +250,7 @@ void AGridUnit::DeselectUnit()
 }
 
 // Determines whether this unit is capable of moving to a given tile
-ENavigationEnum AGridUnit::CanReachTile(AMapTile* Destination)
+ENavigationEnum AGridUnit::CanReachTile(AMapTile* FromTile, AMapTile* Destination)
 {
 	if (Destination->GetOccupyingUnit() != nullptr) { // Cannot reach tile occupied by another unit
 		return ENavigationEnum::Nav_Unreachable;
@@ -201,10 +266,10 @@ ENavigationEnum AGridUnit::CanReachTile(AMapTile* Destination)
 		return ENavigationEnum::Nav_Unreachable;
 	}
 
-	if (Destination->GetActorLocation().Z > CurrentTile->GetActorLocation().Z + MoveClimbHeight) { // Cannot reach tile if tile is higher than unit can climb
+	if (Destination->GetActorLocation().Z > FromTile->GetActorLocation().Z + MoveClimbHeight) { // Cannot reach tile if tile is higher than unit can climb
 		return ENavigationEnum::Nav_Unreachable;
 	}
-	else if (Destination->GetActorLocation().Z < CurrentTile->GetActorLocation().Z - MoveClimbHeight) { // Unit will take damage moving to a tile that is lower than the unit can climb
+	else if (Destination->GetActorLocation().Z < FromTile->GetActorLocation().Z - MoveClimbHeight) { // Unit will take damage moving to a tile that is lower than the unit can climb
 		return ENavigationEnum::Nav_Dangerous;
 	}
 
@@ -240,7 +305,7 @@ void AGridUnit::ShowNavigableLocations_Implementation(AMapTile* FromTile)
 		TArray<AMapTile*> TilesInRange = FromTile->GetFourNeighbouringTiles();
 		for (int i = 0; i < TilesInRange.Num(); i++) {
 			AMapTile* Tile = TilesInRange[i];
-			Tile->ECurrentlyNavigable = CanReachTile(Tile);
+			Tile->ECurrentlyNavigable = CanReachTile(FromTile, Tile);
 			Tile->SetHighlightMaterial();
 		}
 	}
@@ -317,6 +382,8 @@ bool AGridUnit::CheckTileForProperties(AMapTile* Tile, bool bCheckSelf, bool bCh
 
 // Use a short line trace to determine which tile this unit is occupying
 void AGridUnit::DetermineCurrentTile() {
+	if (Health == 0) return;
+
 	FHitResult Hit(ForceInit);
 	FCollisionQueryParams CollisionParams;
 	FVector StartPoint = this->GetActorLocation();
@@ -336,32 +403,50 @@ void AGridUnit::DetermineCurrentTile() {
 // Called when an ability is selected for use, but has not yet been given a target to cast on
 void AGridUnit::SelectAbility(int Ability)
 {
-	CancelAllNavigableLocations();
 	CancelTargetting();
 	SelectedAbility = Ability;
-	FUnitAbility SelectedAbilityStructure = AbilitySet[Ability - 1];
-	TArray<AMapTile*> TilesInRange = FindAbilityRange(SelectedAbilityStructure.Range);
+	FUnitAbility SelectedAbilityStructure;
+	if (Ability < 0) {
+		ShowNavigableLocations(CurrentTile);
+		return;
+	} else if (Ability == 0) {
+		CancelAllNavigableLocations();
+		SelectedAbilityStructure = BaseAbilityData;
+	} else {
+		CancelAllNavigableLocations();
+		SelectedAbilityStructure = AbilitySet[Ability - 1];
+	}
 
-	for (int i = 0; i < TilesInRange.Num(); i++)
-	{
-		//Tiles must pass the unique ability rule and the general CheckTileForProperties function to be targetable
-		bool bAbilityRulePass = false;
-		switch (SelectedAbility) {
-		case 1:
-			bAbilityRulePass = AbilityRule1(TilesInRange[i]);
-			break;
-		case 2:
-			bAbilityRulePass = AbilityRule2(TilesInRange[i]);
-			break;
-		case 3:
-			bAbilityRulePass = AbilityRule3(TilesInRange[i]);
-			break;
-		}
+	if (SelectedAbilityStructure.bRequiresTargeting) {
+		TArray<AMapTile*> TilesInRange = FindAbilityRange(SelectedAbilityStructure.Range);
 
-		if (bAbilityRulePass && CheckTileForProperties(TilesInRange[i], SelectedAbilityStructure.bAffectsSelf, SelectedAbilityStructure.bAffectsEnemies, SelectedAbilityStructure.bAffectsAllies, SelectedAbilityStructure.bAffectsTiles, SelectedAbilityStructure.bAffectsAlliedPortal, SelectedAbilityStructure.bAffectsEnemyPortal, SelectedAbilityStructure.bAffectsBlockages)) {
-			TilesInRange[i]->bTargetable = true;
-			TilesInRange[i]->SetHighlightMaterial();
+		for (int i = 0; i < TilesInRange.Num(); i++)
+		{
+			//Tiles must pass the unique ability rule and the general CheckTileForProperties function to be targetable
+			bool bAbilityRulePass = false;
+			switch (SelectedAbility) {
+			case 0:
+				bAbilityRulePass = BaseAbilityRule(TilesInRange[i]);
+				break;
+			case 1:
+				bAbilityRulePass = AbilityRule1(TilesInRange[i]);
+				break;
+			case 2:
+				bAbilityRulePass = AbilityRule2(TilesInRange[i]);
+				break;
+			case 3:
+				bAbilityRulePass = AbilityRule3(TilesInRange[i]);
+				break;
+			}
+
+			if (bAbilityRulePass && CheckTileForProperties(TilesInRange[i], SelectedAbilityStructure.bAffectsSelf, SelectedAbilityStructure.bAffectsEnemies, SelectedAbilityStructure.bAffectsAllies, SelectedAbilityStructure.bAffectsTiles, SelectedAbilityStructure.bAffectsAlliedPortal, SelectedAbilityStructure.bAffectsEnemyPortal, SelectedAbilityStructure.bAffectsBlockages)) {
+				TilesInRange[i]->bTargetable = true;
+				TilesInRange[i]->SetHighlightMaterial();
+			}
 		}
+	}
+	else {
+		UseSelectedAbility(CurrentTile);
 	}
 }
 
@@ -407,7 +492,7 @@ TArray<AMapTile*> AGridUnit::ExpandAbilityRange(TArray<AMapTile*> CurrentRange, 
 // Cancels any targets highlighted by as targets for an ability
 void AGridUnit::CancelTargetting()
 {
-	SelectedAbility = 0;
+	SelectedAbility = -1;
 	for (TActorIterator<AMapTile> Itr(GetWorld()); Itr; ++Itr)
 	{
 		Itr->bTargetable = false;
@@ -447,6 +532,14 @@ void AGridUnit::DestroyBlockageOnTile_Implementation(AMapTile* Tile) {
 }
 
 
+// Initiates movement along the spline, to move this unit from one tile to the next
+void AGridUnit::BeginMovement() {
+	bMoveAlongSpline = true;
+	if (SoundBank != nullptr) {
+		CallForSound(SoundBank->MoveStart[FMath::RandRange(0, SoundBank->MoveStart.Num() - 1)], GetActorLocation());
+	}
+}
+
 // Use the selected ability with a given tile as the target
 // - Validate
 bool AGridUnit::UseSelectedAbility_Validate(AMapTile* TargetTile)
@@ -457,7 +550,17 @@ bool AGridUnit::UseSelectedAbility_Validate(AMapTile* TargetTile)
 // - Implementation
 void AGridUnit::UseSelectedAbility_Implementation(AMapTile* TargetTile)
 {
+	// Spend energy for selected ability
+	if (SelectedAbility == 0) {
+		Energy = FMath::Clamp(Energy - BaseAbilityData.Cost, 0, MaxEnergy);
+	} else {
+		Energy = FMath::Clamp(Energy - (AbilitySet[SelectedAbility - 1].Cost), 0, MaxEnergy);
+	}
+
 	switch (SelectedAbility) {
+	case 0:
+		BaseAbility(TargetTile);
+		break;
 	case 1:
 		Ability1(TargetTile);
 		break;
@@ -468,10 +571,14 @@ void AGridUnit::UseSelectedAbility_Implementation(AMapTile* TargetTile)
 		Ability3(TargetTile);
 		break;
 	}
-
-	// Spend energy for selected ability
-	Energy = FMath::Clamp(Energy - (AbilitySet[SelectedAbility - 1].Cost), 0, MaxEnergy);
+	
 	CancelTargetting();
+}
+
+// The precise functionality of the unit's base ability
+void AGridUnit::BaseAbility(AMapTile * TargetTile)
+{
+	// To be extended in subclasses
 }
 
 // The precise functionality of the first ability in this unit's AbilitySet array (index 0)
@@ -490,6 +597,12 @@ void AGridUnit::Ability2(AMapTile* TargetTile)
 void AGridUnit::Ability3(AMapTile* TargetTile)
 {
 	// To be extended in subclasses
+}
+
+// An additional rule that determines whether the given tile can be affected by this unit's basic ability
+bool AGridUnit::BaseAbilityRule(AMapTile * TargetTile)
+{
+	return true;
 }
 
 // An additional rule that determines whether the given tile can be affected by the second ability in this unit's AbilitySet array (index 1)
@@ -581,6 +694,45 @@ void AGridUnit::SpawnParticleEffectMulticast_Implementation(UParticleSystem* Emi
 }
 
 
+// These functions funnel a call to spawn a sound effect from the client, through the server and out to all connected clients, so that all players can hear the same sound
+// - Validation
+bool AGridUnit::CallForSound_Validate(USoundBase* Sound, FVector Location)
+{
+	return true;
+}
+
+// - Implementation
+void AGridUnit::CallForSound_Implementation(USoundBase* Sound, FVector Location)
+{
+	SpawnSoundServer(Sound, Location);
+}
+
+// These functions funnel a call to spawn a sound effect from the client, through the server and out to all connected clients, so that all players can hear the same sound
+// - Validation
+bool AGridUnit::SpawnSoundServer_Validate(USoundBase* Sound, FVector Location)
+{
+	return true;
+}
+
+// - Implementation
+void AGridUnit::SpawnSoundServer_Implementation(USoundBase* Sound, FVector Location)
+{
+	SpawnSoundMulticast(Sound, Location);
+}
+
+// These functions funnel a call to spawn a sound effect from the client, through the server and out to all connected clients, so that all players can hear the same sound
+// - Validation
+bool AGridUnit::SpawnSoundMulticast_Validate(USoundBase* Sound, FVector Location)
+{
+	return true;
+}
+
+// - Implementation
+void AGridUnit::SpawnSoundMulticast_Implementation(USoundBase* Sound, FVector Location)
+{
+	UGameplayStatics::PlaySoundAtLocation(GetWorld(), Sound, Location, 1.0f, 1.0f, 0.0f, UnitVoiceAttenuation);
+}
+
 // Set the material for the TeamPlane mesh to correctly represent the appropriate team
 void AGridUnit::SetTeamLightColour()
 {
@@ -633,9 +785,10 @@ int AGridUnit::GetHealth()
 	return Health;
 }
 
-// Sets whether the unit is selected or not
-void AGridUnit::SetSelected(bool bNewValue) {
-	bSelected = bNewValue;
+// Returns the unit's tier
+int AGridUnit::GetTier()
+{
+	return Tier;
 }
 
 // Returns true if the unit is currently selected. Otherwise, returns false

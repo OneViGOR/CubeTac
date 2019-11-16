@@ -36,13 +36,14 @@ class CUBETAC_API AUnit_Portal : public AGridUnit
 public:
 	AUnit_Portal();
 
+	
+
 protected:
 	/**
 	*   FUNCTIONS
 	*/
 
 	virtual void BeginPlay() override;
-
 
 	/**
 	*   COMPONENTS
@@ -52,9 +53,16 @@ protected:
 	UPROPERTY()
 		UStaticMeshComponent* RiftMesh;
 
+	// Team-coloured rift that glows within the portal frame
+	UPROPERTY()
+		UPointLightComponent* PointLight;
+
 	// Looping audio component for portal ambient sound
 	UPROPERTY()
 		UAudioComponent* AmbientHum;
+
+	UPROPERTY()
+		UParticleSystemComponent* ParticleSystem;
 
 
 	/**
@@ -64,10 +72,6 @@ protected:
 	// A pointer to the actor that manages to game map
 	UPROPERTY()
 		AGameMap* GameMapReference;
-
-	// An array containing all of the units portals can spawn and how much energy each on costs
-	UPROPERTY(BlueprintReadOnly)
-		TArray<FUnitBuyData> SpawnList;
 
 	// The information about the unit being prepared for spawn
 	UPROPERTY(BlueprintReadOnly)
@@ -80,6 +84,10 @@ protected:
 	// The amount of energy the portal gains each turn, unlike other units which start each turn with their maximum amount
 	UPROPERTY()
 		int EnergyPerTurn;
+
+	// An array containing all of the units portals can spawn and how much energy each one costs
+	UPROPERTY(BlueprintReadOnly)
+		TArray<FUnitBuyData> SpawnList;
 
 public:
 	/**
@@ -104,6 +112,17 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable)
 		void SelectSpawnUnit(FUnitBuyData SelectedData);
+
+	// Returns an array of data for all units this portal can currently spawn
+	UFUNCTION(BlueprintCallable)
+		TArray<FUnitBuyData> GetUnlockedSpawnList();
+
+	/**
+	*	OVERRIDE - Replace empty base ability function with new one
+	*
+	*	@Param		TargetTile		The tile that the ability will be directed towards
+	*/
+	void BaseAbility(AMapTile* TargetTile) override;
 
 	// OVERRIDE - Deselects this unit - works as normal but also clears SelectedSpawn
 	void DeselectUnit() override;

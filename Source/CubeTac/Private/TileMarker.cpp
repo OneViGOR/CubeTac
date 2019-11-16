@@ -3,6 +3,7 @@
 #include "TileMarker.h"
 #include "GridUnit.h"
 #include "Components/StaticMeshComponent.h"
+#include "Runtime/Engine/Classes/Particles/ParticleSystemComponent.h"
 #include "Runtime/CoreUObject/Public/UObject/ConstructorHelpers.h"
 
 // Sets default values

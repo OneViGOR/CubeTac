@@ -95,7 +95,7 @@ public:
 	*	@Param		PlayerController		Controller owning the unit to be moved
 	*/
 	UFUNCTION(Server, Reliable, WithValidation)
-		void MoveUnit(AMapTile* MoveToTile, ATacticalControllerBase* PlayerController);
+		void MoveUnit(AMapTile* MoveToTile, ATacticalControllerBase* PlayerController, bool bShouldSpendEnergy = true);
 
 	/**
 	*   Determines the aftermath of the movement. Spends movement points and inflicts falling damage
@@ -104,7 +104,7 @@ public:
 	*	@Param		DestinationTile		Tile the unit moved to
 	*/
 	UFUNCTION(Client, Reliable, WithValidation)
-		void ClientMovement(AGridUnit* Unit, AMapTile* DestinationTile, AMapTile* CurrentTile);
+		void ClientMovement(AGridUnit* Unit, AMapTile* DestinationTile, AMapTile* CurrentTile, bool bShouldSpendEnergy = true);
 
 	/**
 	*   Destroys an actor, ensuring that all clients experience it

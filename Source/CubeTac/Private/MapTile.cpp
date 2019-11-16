@@ -276,8 +276,8 @@ void AMapTile::ClickedInPortalPlacementPhase()
 	ATacticalControllerBase* PlayerController = Cast<ATacticalControllerBase>(GetWorld()->GetFirstPlayerController());
 	APlayerPawnC* PlayerPawn = Cast<APlayerPawnC>(PlayerController->GetPawn());
 
-	//A portal may be spawned as long at it is the player's turn and this tile has no blockage in the way
-	if (PlayerController->bTurn && Blockage == nullptr) {
+	//A portal may be spawned as long at it is the player's turn and this tile has no blockage or other portal in the way
+	if (PlayerController->bTurn && Blockage == nullptr && OccupyingUnit == nullptr) {
 		if (PlayerController->OwnedPortal != nullptr) {
 			PlayerController->OwnedPortal->GetCurrentTile()->SetOccupyingUnit(nullptr);
 			PlayerPawn->DestroyActor(PlayerController->OwnedPortal);  // Players may only have one portal each. Remove any other that might exist

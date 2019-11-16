@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "TacticalGameState.h"
+#include "Unit_Portal.h"
 #include "GameFramework/GameModeBase.h"
 #include "CubeTacGameModeBase.generated.h"
 
