@@ -3,6 +3,7 @@
 
 #include "TacticalGameInstance.h"
 #include "Engine.h"
+#include "MoviePlayer\Public\MoviePlayer.h"
 
 
 UTacticalGameInstance::UTacticalGameInstance(const FObjectInitializer& ObjectInitializer)
@@ -20,7 +21,7 @@ bool UTacticalGameInstance::CreateGameSession(TSharedPtr<const FUniqueNetId> Use
 {
 	// Get the Online Subsystem to work with
 	IOnlineSubsystem* const OnlineSub = IOnlineSubsystem::Get();
-
+	
 	if (OnlineSub)
 	{
 		// Get the Session Interface, so we can call the "CreateSession" function on it

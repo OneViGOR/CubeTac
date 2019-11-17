@@ -20,7 +20,7 @@ AUnit_Portal::AUnit_Portal(){
 
 	//Set up unit details
 	Name = FText::FromString("Portal");
-	IconAssetPath = "Texture2D'/Game/Textures/UI/AbilityIcons/Portal.Portal'";
+	IconAssetPath = "Texture2D'/Game/Textures/UI/UnitIcons/Portal.Portal'";
 	Tier = 1;
 	Health = 300;
 	MaxHealth = 300;

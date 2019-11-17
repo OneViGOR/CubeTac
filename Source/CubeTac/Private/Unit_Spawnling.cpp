@@ -7,7 +7,7 @@
 AUnit_Spawnling::AUnit_Spawnling() {
 	// Define unique traits for this unit
 	Name = FText::FromString("Spawnling");
-	IconAssetPath = "Texture2D'/Game/Textures/UI/AbilityIcons/Spawnling.Spawnling'";
+	IconAssetPath = "Texture2D'/Game/Textures/UI/UnitIcons/Spawnling.Spawnling'";
 	ERole = ERoleEnum::Role_General;
 	Tier = 1;
 	Health = 100;
